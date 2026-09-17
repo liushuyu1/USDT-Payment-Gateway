@@ -26,7 +26,7 @@ public class DspayMockMerchant {
     static final String DSPAY_BASE = trimSlash(System.getProperty("dspayBase", ""));
     static final String PUBLIC_BASE = trimSlash(System.getProperty("publicBase", "http://localhost:" + PORT));
     static final String MERCHANT_NO = System.getProperty("merchantNo", "change-me");
-    static final String API_SECRET = System.getProperty("apiSecret", "change-me");
+    static final String API_SECRET = apiSecret();
     static final HttpClient HTTP = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
 
     public static void main(String[] args) throws IOException {
@@ -39,6 +39,11 @@ public class DspayMockMerchant {
         server.start();
         System.out.println("Mock merchant: " + PUBLIC_BASE);
         System.out.println("DSPay API: " + DSPAY_BASE);
+    }
+
+    static String apiSecret() {
+        String value = System.getenv("API_SECRET");
+        return value == null || value.isEmpty() ? System.getProperty("apiSecret", "change-me") : value;
     }
 
     static void create(HttpExchange exchange) throws IOException {

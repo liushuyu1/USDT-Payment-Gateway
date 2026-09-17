@@ -15,10 +15,19 @@ npm --version   # 10.8.2
 
 > `REPLACE_WITH_REAL_MERCHANT_NO`, `REPLACE_WITH_REAL_API_SECRET`, and `REPLACE_WITH_REAL_DSPAY_API_HOST` below are placeholders. Replace them with real values from the DSPay Merchant Portal before running.
 
+Run `./start.sh` for a background service. It prompts for missing `DSPAY_BASE_URL`, `PUBLIC_BASE_URL`, `MERCHANT_NO`, and `API_SECRET`; secret input is hidden. `PORT` is optional and defaults to `3000`. Entered values are not saved, so provide them again on the next start or set environment variables first.
+
+```bash
+cd Demo/back-end/nodejs
+./start.sh
+```
+
+For non-interactive use, set the environment variables first:
+
 ```bash
 cd Demo/back-end/nodejs
 MERCHANT_NO="REPLACE_WITH_REAL_MERCHANT_NO" API_SECRET="REPLACE_WITH_REAL_API_SECRET" \
-DSPAY_BASE_URL="https://REPLACE_WITH_REAL_DSPAY_API_HOST" PUBLIC_BASE_URL="http://localhost:3000" npm start
+DSPAY_BASE_URL="https://REPLACE_WITH_REAL_DSPAY_API_HOST" PUBLIC_BASE_URL="http://localhost:3000" ./start.sh
 ```
 
 - `GET /create`: server-to-server create, then 302 to returned `checkoutUrl`

@@ -8,6 +8,15 @@ Runtime baseline: PHP 5.6 minimum; all syntax checks, create-signature tests, an
 
 > `REPLACE_WITH_REAL_MERCHANT_NO` and `REPLACE_WITH_REAL_API_SECRET` below are placeholders and must be replaced. `DSPAY_BASE_URL` is prefilled with the DSPay production API; change it only when testing another environment.
 
+Run `./start.sh` and enter any missing `DSPAY_BASE_URL`, `PUBLIC_BASE_URL`, `MERCHANT_NO`, and `API_SECRET` values when prompted; secret input is hidden. `PORT` is optional and defaults to `3000`. Entered values are not saved. The PHP server runs in the foreground; press Ctrl+C to stop it.
+
+```bash
+cd Demo/back-end/php
+./start.sh
+```
+
+For non-interactive use, set the environment variables first:
+
 ```bash
 cd Demo/back-end/php
 export MERCHANT_NO="REPLACE_WITH_REAL_MERCHANT_NO"
