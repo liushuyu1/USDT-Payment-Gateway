@@ -18,31 +18,86 @@ if [ -f "$PID_FILE" ]; then
     rm -f "$PID_FILE"
 fi
 
+prompt_required() {
+    local name="$1" description="$2" value
+    value="${!name}"
+    if [ -n "$value" ]; then
+        return
+    fi
+    if [ ! -t 0 ]; then
+        echo "Missing $name ($description). Set it as an environment variable." >&2
+        exit 1
+    fi
+    while [ -z "$value" ]; do
+        read -r -p "$description ($name): " value || exit 1
+        [ -n "$value" ] || echo "$name cannot be empty." >&2
+    done
+    printf -v "$name" '%s' "$value"
+}
+
+prompt_secret() {
+    if [ -n "$API_SECRET" ]; then
+        return
+    fi
+    if [ ! -t 0 ]; then
+        echo "Missing API_SECRET. Set it as an environment variable." >&2
+        exit 1
+    fi
+    while [ -z "$API_SECRET" ]; do
+        read -r -s -p "API secret (API_SECRET, hidden): " API_SECRET || exit 1
+        echo
+        [ -n "$API_SECRET" ] || echo "API_SECRET cannot be empty." >&2
+    done
+}
+
+echo "Required configuration (preset environment variables are reused):"
+echo "  DSPAY_BASE_URL   DSPay API base URL"
+echo "  PUBLIC_BASE_URL  public URL of this demo"
+echo "  MERCHANT_NO      merchant number"
+echo "  API_SECRET       API secret (hidden input)"
+echo "  PORT             optional; default 3000"
+prompt_required DSPAY_BASE_URL "DSPay API base URL"
+prompt_required PUBLIC_BASE_URL "Public demo URL"
+prompt_required MERCHANT_NO "Merchant number"
+prompt_secret
+
+PORT="${PORT:-3000}"
+if ! [[ "$PORT" =~ ^[1-9][0-9]*$ ]] || (( PORT > 65535 )); then
+    echo "Invalid PORT: expected an integer from 1 to 65535." >&2
+    exit 1
+fi
+export API_SECRET
+
 echo "Starting server..."
 
 cd "$ROOT"
 mkdir -p "$LOG_DIR"
-JAVA_ARGS=()
-[ -n "$PORT" ] && JAVA_ARGS+=("-Dport=$PORT")
-[ -n "$DSPAY_BASE_URL" ] && JAVA_ARGS+=("-DdspayBase=$DSPAY_BASE_URL")
-[ -n "$PUBLIC_BASE_URL" ] && JAVA_ARGS+=("-DpublicBase=$PUBLIC_BASE_URL")
-[ -n "$MERCHANT_NO" ] && JAVA_ARGS+=("-DmerchantNo=$MERCHANT_NO")
-[ -n "$API_SECRET" ] && JAVA_ARGS+=("-DapiSecret=$API_SECRET")
+JAVA_ARGS=("-Dport=$PORT" "-DdspayBase=$DSPAY_BASE_URL" "-DpublicBase=$PUBLIC_BASE_URL" "-DmerchantNo=$MERCHANT_NO")
+printf '\n=== Starting %s ===\n' "$(date)" >> "$LOG_FILE"
+LOG_START_LINE=$(wc -l < "$LOG_FILE")
 nohup java "${JAVA_ARGS[@]}" src/DspayMockMerchant.java >> "$LOG_FILE" 2>&1 &
 PID=$!
 echo $PID > "$PID_FILE"
 
-sleep 1
+for ((attempt = 0; attempt < 30; attempt++)); do
+    if tail -n +"$((LOG_START_LINE + 1))" "$LOG_FILE" | grep -q '^Mock merchant:' && kill -0 "$PID" 2>/dev/null; then
+        echo "Server started successfully (PID=$PID)"
+        echo "Log file: $LOG_FILE"
+        echo "Port: $PORT"
+        echo "View logs: tail -f '$LOG_FILE'"
+        echo "Stop server: ./stop.sh"
+        exit 0
+    fi
+    if ! kill -0 "$PID" 2>/dev/null; then
+        break
+    fi
+    sleep 1
+done
 
+echo "Server failed to start. Recent logs:" >&2
+tail -n +"$((LOG_START_LINE + 1))" "$LOG_FILE" >&2
 if kill -0 "$PID" 2>/dev/null; then
-    echo "Server started successfully (PID=$PID)"
-    echo "Log file: $LOG_FILE"
-    echo "Port: ${PORT:-3000}"
-    echo ""
-    echo "View logs: tail -f '$LOG_FILE'"
-    echo "Stop server: ./stop.sh"
-else
-    echo "Server failed to start. Check: java src/DspayMockMerchant.java"
-    rm -f "$PID_FILE"
-    exit 1
+    kill "$PID" 2>/dev/null || true
 fi
+rm -f "$PID_FILE"
+exit 1

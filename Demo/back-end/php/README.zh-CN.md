@@ -8,6 +8,15 @@ PHP 5.6+，无需 Composer。服务端调用 DSPay 创建和查询接口，并�
 
 > `REPLACE_WITH_REAL_MERCHANT_NO` 和 `REPLACE_WITH_REAL_API_SECRET` 是占位值，执行前必须替换。`DSPAY_BASE_URL` 已填写DSPay正式API地址；测试其他环境时再修改。
 
+执行 `./start.sh` 后按提示输入缺少的 `DSPAY_BASE_URL`、`PUBLIC_BASE_URL`、`MERCHANT_NO` 和 `API_SECRET`；密钥输入不回显。`PORT` 可选，默认 `3000`。输入值不会保存。PHP 服务在前台运行，按 Ctrl+C 停止。
+
+```bash
+cd Demo/back-end/php
+./start.sh
+```
+
+非交互运行时，先设置环境变量：
+
 ```bash
 cd Demo/back-end/php
 export MERCHANT_NO="REPLACE_WITH_REAL_MERCHANT_NO"
