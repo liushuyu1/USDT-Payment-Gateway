@@ -69,6 +69,20 @@ try {
         header('Location: /query?outOrderNo=' . rawurlencode($outOrderNo), true, 302);
         return;
     }
+    // GET / serves the front-end page: same origin as the API, so opening PUBLIC_BASE_URL gives the full demo.
+    // FRONT_END_DIR env var overrides the default repo layout (Demo/front-end, relative to this script's ../..).
+    if ($method === 'GET') {
+        $frontEndDir = getenv('FRONT_END_DIR') ?: __DIR__ . '/../../front-end';
+        $rel = ($path === '/' || $path === '/index.html') ? 'index.html' : rawurldecode(substr($path, 1));
+        $root = realpath($frontEndDir);
+        $file = realpath($frontEndDir . '/' . $rel);
+        // Path-traversal guard: resolved file must stay inside the front-end directory.
+        if ($root !== false && $file !== false && strpos($file, $root) === 0 && is_file($file)) {
+            header('Content-Type: ' . (substr($file, -5) === '.html' ? 'text/html; charset=utf-8' : 'application/octet-stream'));
+            readfile($file);
+            return;
+        }
+    }
     jsonResponse(404, array('code' => 'NOT_FOUND'));
 } catch (RequestBuilderException $exception) {
     jsonResponse($exception->getCode() >= 400 ? $exception->getCode() : 500,

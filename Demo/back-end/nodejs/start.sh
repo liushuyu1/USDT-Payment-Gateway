@@ -1,5 +1,5 @@
 #!/bin/bash
-# DSPay mock merchant — 后台启动脚本
+# DSPay mock merchant (Node.js) — background start script
 
 set -e
 
@@ -8,11 +8,11 @@ PID_FILE="$ROOT/server.pid"
 LOG_DIR="$ROOT/logs"
 LOG_FILE="$LOG_DIR/server.log"
 
-# 已运行则跳过
+# Skip if already running
 if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE")
     if kill -0 "$PID" 2>/dev/null; then
-        echo "服务已在运行 (PID=$PID)，如需重启请先执行 ./stop.sh"
+        echo "Server already running (PID=$PID). Run ./stop.sh first to restart."
         exit 1
     fi
     rm -f "$PID_FILE"
@@ -25,12 +25,12 @@ prompt_required() {
         return
     fi
     if [ ! -t 0 ]; then
-        echo "缺少 $name（$description），请通过环境变量提供。" >&2
+        echo "Missing $name ($description). Set it as an environment variable." >&2
         exit 1
     fi
     while [ -z "$value" ]; do
         read -r -p "$description ($name): " value || exit 1
-        [ -n "$value" ] || echo "$name 不能为空。" >&2
+        [ -n "$value" ] || echo "$name cannot be empty." >&2
     done
     printf -v "$name" '%s' "$value"
 }
@@ -40,40 +40,40 @@ prompt_secret() {
         return
     fi
     if [ ! -t 0 ]; then
-        echo "缺少 API_SECRET，请通过环境变量提供。" >&2
+        echo "Missing API_SECRET. Set it as an environment variable." >&2
         exit 1
     fi
     while [ -z "$API_SECRET" ]; do
-        read -r -s -p "API 密钥 (API_SECRET，输入不回显): " API_SECRET || exit 1
+        read -r -s -p "API secret (API_SECRET, hidden): " API_SECRET || exit 1
         echo
-        [ -n "$API_SECRET" ] || echo "API_SECRET 不能为空。" >&2
+        [ -n "$API_SECRET" ] || echo "API_SECRET cannot be empty." >&2
     done
 }
 
-echo "启动配置（已设置的环境变量直接使用）："
-echo "  DSPAY_BASE_URL   DSPay API 基础地址"
-echo "  PUBLIC_BASE_URL  Demo 对外访问地址"
-echo "  MERCHANT_NO      商户号"
-echo "  API_SECRET       API 密钥（输入不回显）"
-echo "  PORT             可选，默认 3000"
-echo "  FRONT_END_DIR    可选，默认 ../../front-end（相对脚本目录）"
-prompt_required DSPAY_BASE_URL "DSPay API 基础地址"
-prompt_required PUBLIC_BASE_URL "Demo 对外访问地址"
-prompt_required MERCHANT_NO "商户号"
+echo "Required configuration (preset environment variables are reused):"
+echo "  DSPAY_BASE_URL   DSPay API base URL"
+echo "  PUBLIC_BASE_URL  public URL of this demo"
+echo "  MERCHANT_NO      merchant number"
+echo "  API_SECRET       API secret (hidden input)"
+echo "  PORT             optional; default 3000"
+echo "  FRONT_END_DIR    optional; default ../../front-end (relative to this script)"
+prompt_required DSPAY_BASE_URL "DSPay API base URL"
+prompt_required PUBLIC_BASE_URL "Public demo URL"
+prompt_required MERCHANT_NO "Merchant number"
 prompt_secret
 
 PORT="${PORT:-3000}"
 if ! [[ "$PORT" =~ ^[1-9][0-9]*$ ]] || (( PORT > 65535 )); then
-    echo "PORT 无效：请输入 1 到 65535 的整数。" >&2
+    echo "Invalid PORT: expected an integer from 1 to 65535." >&2
     exit 1
 fi
 export DSPAY_BASE_URL PUBLIC_BASE_URL MERCHANT_NO API_SECRET PORT
 
-echo "启动服务..."
+echo "Starting server..."
 
 cd "$ROOT"
 mkdir -p "$LOG_DIR"
-printf '\n=== 启动于 %s ===\n' "$(date)" >> "$LOG_FILE"
+printf '\n=== Starting %s ===\n' "$(date)" >> "$LOG_FILE"
 LOG_START_LINE=$(wc -l < "$LOG_FILE")
 nohup node src/server.js >> "$LOG_FILE" 2>&1 &
 PID=$!
@@ -81,11 +81,12 @@ echo $PID > "$PID_FILE"
 
 for ((attempt = 0; attempt < 30; attempt++)); do
     if tail -n +"$((LOG_START_LINE + 1))" "$LOG_FILE" | grep -q '^Mock merchant:' && kill -0 "$PID" 2>/dev/null; then
-        echo "服务启动成功 (PID=$PID)"
-        echo "日志文件: $LOG_FILE"
-        echo "监听端口: $PORT"
-        echo "查看日志: tail -f '$LOG_FILE'"
-        echo "停止服务: ./stop.sh"
+        echo "Server started successfully (PID=$PID)"
+        echo "Log file: $LOG_FILE"
+        echo "Port: $PORT"
+        echo "Demo page: ${PUBLIC_BASE_URL%/}/"
+        echo "View logs: tail -f '$LOG_FILE'"
+        echo "Stop server: ./stop.sh"
         exit 0
     fi
     if ! kill -0 "$PID" 2>/dev/null; then
@@ -94,7 +95,7 @@ for ((attempt = 0; attempt < 30; attempt++)); do
     sleep 1
 done
 
-echo "服务启动失败，最近日志：" >&2
+echo "Server failed to start. Recent logs:" >&2
 tail -n +"$((LOG_START_LINE + 1))" "$LOG_FILE" >&2
 if kill -0 "$PID" 2>/dev/null; then
     kill "$PID" 2>/dev/null || true

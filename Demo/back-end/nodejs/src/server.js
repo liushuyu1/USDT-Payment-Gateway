@@ -12,7 +12,7 @@ const DSPAY_BASE_URL = (process.env.DSPAY_BASE_URL || '').replace(/\/$/, '');
 const MERCHANT_NO = process.env.MERCHANT_NO || 'change-me';
 const API_SECRET = process.env.API_SECRET || 'change-me';
 // 前端页面目录：默认仓库内 Demo/front-end（相对 back-end/nodejs）；FRONT_END_DIR 环境变量可覆盖
-const FRONT_END_DIR = process.env.FRONT_END_DIR || path.resolve(__dirname, '../../front-end');
+const FRONT_END_DIR = process.env.FRONT_END_DIR || path.resolve(__dirname, '../../../front-end');
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 
 if (!DSPAY_BASE_URL) throw new Error('DSPAY_BASE_URL is required');
