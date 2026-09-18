@@ -1,9 +1,27 @@
 #!/bin/bash
-# DSPay mock merchant (PHP) — foreground start script
+# DSPay mock merchant (PHP) — background start script
 
-set -eu
+set -e
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+PID_FILE="$ROOT/server.pid"
+LOG_DIR="$ROOT/logs"
+LOG_FILE="$LOG_DIR/server.log"
+
+# Skip if already running
+if [ -f "$PID_FILE" ]; then
+    PID=$(cat "$PID_FILE")
+    if kill -0 "$PID" 2>/dev/null; then
+        echo "Server already running (PID=$PID). Run ./stop.sh first to restart."
+        exit 1
+    fi
+    rm -f "$PID_FILE"
+fi
+
+if ! command -v php >/dev/null 2>&1; then
+    echo "PHP CLI not found. Install PHP 7.4 or newer (php-cli) before starting." >&2
+    exit 1
+fi
 
 prompt_required() {
     local name="$1" description="$2" value
@@ -56,6 +74,38 @@ if ! [[ "$PORT" =~ ^[1-9][0-9]*$ ]] || (( PORT > 65535 )); then
 fi
 export DSPAY_BASE_URL PUBLIC_BASE_URL MERCHANT_NO API_SECRET PORT
 
+echo "Starting server..."
+
 cd "$ROOT"
-echo "Demo page: ${PUBLIC_BASE_URL%/}/"
-exec php -S "localhost:$PORT" server.php
+mkdir -p "$LOG_DIR"
+printf '\n=== Starting %s ===\n' "$(date)" >> "$LOG_FILE"
+LOG_START_LINE=$(wc -l < "$LOG_FILE")
+# Bind 0.0.0.0 (not localhost) so the demo is reachable when deployed on a server,
+# matching the Java/Node.js versions.
+nohup php -S "0.0.0.0:$PORT" server.php >> "$LOG_FILE" 2>&1 &
+PID=$!
+echo $PID > "$PID_FILE"
+
+for ((attempt = 0; attempt < 30; attempt++)); do
+    if tail -n +"$((LOG_START_LINE + 1))" "$LOG_FILE" | grep -q 'Development Server' && kill -0 "$PID" 2>/dev/null; then
+        echo "Server started successfully (PID=$PID)"
+        echo "Log file: $LOG_FILE"
+        echo "Port: $PORT"
+        echo "Demo page: ${PUBLIC_BASE_URL%/}/"
+        echo "View logs: tail -f '$LOG_FILE'"
+        echo "Stop server: ./stop.sh"
+        exit 0
+    fi
+    if ! kill -0 "$PID" 2>/dev/null; then
+        break
+    fi
+    sleep 1
+done
+
+echo "Server failed to start. Recent logs:" >&2
+tail -n +"$((LOG_START_LINE + 1))" "$LOG_FILE" >&2
+if kill -0 "$PID" 2>/dev/null; then
+    kill "$PID" 2>/dev/null || true
+fi
+rm -f "$PID_FILE"
+exit 1
