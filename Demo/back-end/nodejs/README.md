@@ -15,7 +15,7 @@ npm --version   # 10.8.2
 
 > `REPLACE_WITH_REAL_MERCHANT_NO`, `REPLACE_WITH_REAL_API_SECRET`, and `REPLACE_WITH_REAL_DSPAY_API_HOST` below are placeholders. Replace them with real values from the DSPay Merchant Portal before running.
 
-Run `./start.sh` for a background service. It prompts for missing `DSPAY_BASE_URL`, `PUBLIC_BASE_URL`, `MERCHANT_NO`, and `API_SECRET`; secret input is hidden. `PORT` is optional and defaults to `3000`. Entered values are not saved, so provide them again on the next start or set environment variables first.
+Run `./start.sh` for a background service. It prompts for missing `DSPAY_BASE_URL`, `PUBLIC_BASE_URL`, `MERCHANT_NO`, and `API_SECRET`; secret input is hidden. `PORT` is optional and defaults to `3000`; `FRONT_END_DIR` optionally overrides the served front-end directory (default `../../front-end`). Entered values are not saved, so provide them again on the next start or set environment variables first.
 
 ```bash
 cd Demo/back-end/nodejs
@@ -33,6 +33,7 @@ DSPAY_BASE_URL="https://REPLACE_WITH_REAL_DSPAY_API_HOST" PUBLIC_BASE_URL="http:
 - `GET /create`: server-to-server create, then 302 to returned `checkoutUrl`
 - `GET /query?orderNo=...` or `?outOrderNo=...`: signed authoritative query
 - `POST /notify`: verify `X-DSPay-Signature` over the shared ASCII-sorted canonical field string
-- `/payment/return` handles timeout and `/payment/success` handles completion; both query DSPay before fulfillment
+- `GET /` serves the front-end store page (same origin as the API; override the directory with `FRONT_END_DIR`)
+- `returnUrl` redirects back to the store page; `successRedirectUrl` lands on `/query` showing the real order status — a redirect is never proof of payment
 
 Run tests with `npm test`.

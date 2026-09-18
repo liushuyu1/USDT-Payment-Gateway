@@ -14,10 +14,12 @@ java -DmerchantNo="REPLACE_WITH_REAL_MERCHANT_NO" -DapiSecret="REPLACE_WITH_REAL
   -DpublicBase="http://localhost:3000" src/DspayMockMerchant.java
 ```
 
-后台运行可执行 `./start.sh`。脚本会交互询问 `DSPAY_BASE_URL`、`PUBLIC_BASE_URL`、`MERCHANT_NO` 和 `API_SECRET`，密钥输入不回显。提前设置对应环境变量可跳过询问。`PORT` 可选，默认 `3000`。输入值不会保存；下次启动需重新输入或通过环境变量提供。非交互运行必须提供上述四项环境变量。
+后台运行可执行 `./start.sh`。脚本会交互询问 `DSPAY_BASE_URL`、`PUBLIC_BASE_URL`、`MERCHANT_NO` 和 `API_SECRET`，密钥输入不回显。提前设置对应环境变量可跳过询问。`PORT` 可选，默认 `3000`；`FRONT_END_DIR` 可选，可指定其他前端目录（默认 `../../front-end`）。输入值不会保存；下次启动需重新输入或通过环境变量提供。非交互运行必须提供上述四项环境变量。
 
 - `GET /create`：签名预下单并 302 到响应中的 `checkoutUrl`
+- `GET /query?orderNo=...` 或 `?outOrderNo=...`：签名主动查询
 - `POST /notify`：Raw Body 回调验签
-- 超时返回页只做提示；生产系统必须调用 `POST /dspay/public/order/query` 确认状态
+- `GET /` 托管前端商店页（与接口同源；可用 `FRONT_END_DIR` 指定其他目录）
+- `returnUrl` 跳回商店首页；`successRedirectUrl` 跳到 `/query` 展示真实订单状态——浏览器跳转不能作为发货依据
 
 完整说明见 [../../README.zh-CN.md](../../README.zh-CN.md)。

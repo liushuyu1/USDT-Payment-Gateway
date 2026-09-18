@@ -47,7 +47,7 @@ export PUBLIC_BASE_URL="http://localhost:3000"
 node src/server.js
 ```
 
-Open `Demo/front-end/index.html` and click Pay Now. Expose port 3000 through ngrok or similar when testing webhooks, then configure that public `/notify` URL in the merchant portal.
+Every backend version also serves the store page itself: after `./start.sh`, open `http://localhost:3000` (or your `PUBLIC_BASE_URL`) and click Pay Now — page and API share the same origin, no extra static hosting needed. Opening `Demo/front-end/index.html` directly from disk also works locally (it falls back to `http://localhost:3000`). Expose port 3000 through ngrok or similar when testing webhooks, then configure that public `/notify` URL in the merchant portal. `FRONT_END_DIR` optionally points the backend at a different front-end directory (default: `../../front-end`).
 
 The front end displays an editable Order ID (`outOrderNo`). The refresh button generates a new ID each time; Pay Now submits the displayed ID. Use a new ID for each new order. Reuse the original ID and identical business fields only when retrying the same order. The backend uses the supplied value, or generates one when none is supplied.
 

@@ -15,11 +15,13 @@ java -DmerchantNo="REPLACE_WITH_REAL_MERCHANT_NO" -DapiSecret="REPLACE_WITH_REAL
   src/DspayMockMerchant.java
 ```
 
-For background use, run `./start.sh`. It prompts for `DSPAY_BASE_URL`, `PUBLIC_BASE_URL`, `MERCHANT_NO`, and `API_SECRET`; secret input is hidden. Set any of these environment variables beforehand to skip its prompt. `PORT` is optional and defaults to `3000`. The script does not save entered values, so enter them again on the next start or provide them through the environment. Non-interactive runs require all four variables.
+For background use, run `./start.sh`. It prompts for `DSPAY_BASE_URL`, `PUBLIC_BASE_URL`, `MERCHANT_NO`, and `API_SECRET`; secret input is hidden. Set any of these environment variables beforehand to skip its prompt. `PORT` is optional and defaults to `3000`; `FRONT_END_DIR` optionally overrides the served front-end directory (default `../../front-end`). The script does not save entered values, so enter them again on the next start or provide them through the environment. Non-interactive runs require all four variables.
 
-- `GET /create`: create the order server-to-server and redirect
+- `GET /create`: create the order server-to-server and redirect to `checkoutUrl`
+- `GET /query?orderNo=...` or `?outOrderNo=...`: signed authoritative query
 - `POST /notify`: verify `X-DSPay-Signature` over the shared ASCII-sorted canonical field string
-- the timeout landing page is informational only; query `POST /dspay/public/order/query` before fulfillment
+- `GET /` serves the front-end store page (same origin as the API; override the directory with `FRONT_END_DIR`)
+- `returnUrl` redirects back to the store page; `successRedirectUrl` lands on `/query` showing the real order status — a redirect is never proof of payment
 
 Compile and run the local test:
 

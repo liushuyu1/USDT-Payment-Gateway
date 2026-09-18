@@ -8,7 +8,7 @@ Runtime baseline: PHP 5.6 minimum; all syntax checks, create-signature tests, an
 
 > `REPLACE_WITH_REAL_MERCHANT_NO` and `REPLACE_WITH_REAL_API_SECRET` below are placeholders and must be replaced. `DSPAY_BASE_URL` is prefilled with the DSPay production API; change it only when testing another environment.
 
-Run `./start.sh` and enter any missing `DSPAY_BASE_URL`, `PUBLIC_BASE_URL`, `MERCHANT_NO`, and `API_SECRET` values when prompted; secret input is hidden. `PORT` is optional and defaults to `3000`. Entered values are not saved. The PHP server runs in the foreground; press Ctrl+C to stop it.
+Run `./start.sh` and enter any missing `DSPAY_BASE_URL`, `PUBLIC_BASE_URL`, `MERCHANT_NO`, and `API_SECRET` values when prompted; secret input is hidden. `PORT` is optional and defaults to `3000`, and `FRONT_END_DIR` optionally overrides the served front-end directory (default `../../front-end`). Entered values are not saved. The server runs in the background (PID in `server.pid`); stop it with `./stop.sh`.
 
 ```bash
 cd Demo/back-end/php
@@ -29,7 +29,8 @@ export PUBLIC_BASE_URL="http://localhost:3000"
 - `GET /create`: call `POST /dspay/public/order/create`, then 302 to returned `checkoutUrl`
 - `GET /query?orderNo=...` or `?outOrderNo=...`: signed authoritative query
 - `POST /notify`: verify `X-DSPay-Signature` over the shared ASCII-sorted canonical field string
-- timeout and success pages query DSPay; redirects are never proof of payment
+- `GET /` serves the front-end store page (same origin as the API)
+- `returnUrl` redirects back to the store page; `successRedirectUrl` lands on `/query` showing the real order status — a redirect is never proof of payment
 
 Run local tests:
 
