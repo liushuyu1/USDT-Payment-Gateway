@@ -90,6 +90,11 @@ try {
     }
     jsonResponse(404, array('code' => 'NOT_FOUND'));
 } catch (RequestBuilderException $exception) {
-    jsonResponse($exception->getCode() >= 400 ? $exception->getCode() : 500,
+    // getCode() may carry a DSPay business code (e.g. 50613) which is NOT a valid HTTP status.
+    // Only forward it when it is a legal HTTP status; otherwise fall back to 502 and keep the
+    // DSPay payload in the body, so the response line never gets corrupted.
+    $status = $exception->getCode();
+    if ($status < 100 || $status > 599) $status = 502;
+    jsonResponse($status,
         array('code' => 'DEMO_ERROR', 'msg' => $exception->getMessage(), 'dspay' => $exception->getErrors()));
 }

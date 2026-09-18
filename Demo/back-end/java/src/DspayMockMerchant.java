@@ -40,6 +40,7 @@ public class DspayMockMerchant {
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
         server.createContext("/", DspayMockMerchant::index);
         server.createContext("/create", DspayMockMerchant::create);
+        server.createContext("/query", DspayMockMerchant::query);
         server.createContext("/notify", DspayMockMerchant::notify);
         server.createContext("/payment/return", DspayMockMerchant::landing);
         server.createContext("/payment/success", DspayMockMerchant::landing);
@@ -126,6 +127,39 @@ public class DspayMockMerchant {
             exchange.getResponseHeaders().set("Location", checkoutUrl);
             exchange.sendResponseHeaders(302, -1);
             exchange.close();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt(); send(exchange, 500, "{\"code\":\"INTERRUPTED\"}");
+        }
+    }
+
+    /** GET /query?orderNo=|outOrderNo= —— 与 nodejs/php 版对齐：服务端签名后调 /dspay/public/order/query 透传结果。 */
+    static void query(HttpExchange exchange) throws IOException {
+        if (!"GET".equals(exchange.getRequestMethod())) { send(exchange, 405, "{\"code\":\"FAIL\"}"); return; }
+        Map<String, String> q = query(exchange.getRequestURI().getRawQuery());
+        String orderNo = q.get("orderNo");
+        String outOrderNo = q.get("outOrderNo");
+        if ((orderNo == null || orderNo.isEmpty()) && (outOrderNo == null || outOrderNo.isEmpty())) {
+            send(exchange, 400, "{\"code\":\"ORDER_NO_REQUIRED\"}");
+            return;
+        }
+        long timestamp = System.currentTimeMillis();
+        Map<String, String> signatureFields = new TreeMap<>();
+        signatureFields.put("merchantNo", MERCHANT_NO);
+        signatureFields.put("timestamp", String.valueOf(timestamp));
+        if (orderNo != null && !orderNo.isEmpty()) signatureFields.put("orderNo", orderNo);
+        if (outOrderNo != null && !outOrderNo.isEmpty()) signatureFields.put("outOrderNo", outOrderNo);
+        String signature = hmac(canonicalFields(signatureFields), API_SECRET);
+
+        StringBuilder body = new StringBuilder("{");
+        body.append("\"merchantNo\":\"").append(esc(MERCHANT_NO)).append("\",");
+        if (orderNo != null && !orderNo.isEmpty()) body.append("\"orderNo\":\"").append(esc(orderNo)).append("\",");
+        if (outOrderNo != null && !outOrderNo.isEmpty()) body.append("\"outOrderNo\":\"").append(esc(outOrderNo)).append("\",");
+        body.append("\"timestamp\":").append(timestamp).append(",\"signature\":\"").append(signature).append("\"}");
+        try {
+            HttpRequest request = HttpRequest.newBuilder(URI.create(DSPAY_BASE + "/dspay/public/order/query"))
+                    .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body.toString())).build();
+            HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
+            send(exchange, response.statusCode() / 100 == 2 ? 200 : response.statusCode(), response.body());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); send(exchange, 500, "{\"code\":\"INTERRUPTED\"}");
         }
