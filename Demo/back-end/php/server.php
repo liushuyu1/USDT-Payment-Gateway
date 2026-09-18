@@ -64,7 +64,12 @@ try {
         jsonResponse(200, array('code' => 'SUCCESS', 'msg' => 'ok'));
         return;
     }
-    if ($method === 'GET' && ($path === '/payment/return' || $path === '/payment/success')) {
+    // returnUrl (cancel/return) -> store front page; successRedirectUrl -> order query
+    if ($method === 'GET' && $path === '/payment/return') {
+        header('Location: /', true, 302);
+        return;
+    }
+    if ($method === 'GET' && $path === '/payment/success') {
         $outOrderNo = isset($_GET['outOrderNo']) ? $_GET['outOrderNo'] : '';
         header('Location: /query?outOrderNo=' . rawurlencode($outOrderNo), true, 302);
         return;

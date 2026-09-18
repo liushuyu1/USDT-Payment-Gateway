@@ -94,7 +94,12 @@ const server = http.createServer(async (req, res) => {
         if (req.method === 'GET' && url.pathname === '/create') return await createOrder(url, res);
         if (req.method === 'GET' && url.pathname === '/query') return await queryOrder(url, res);
         if (req.method === 'POST' && url.pathname === '/notify') return notify(req, res);
-        if (req.method === 'GET' && ['/payment/return', '/payment/success'].includes(url.pathname)) {
+        // returnUrl (cancel/return) -> store front page; successRedirectUrl -> order query
+        // (a redirect is not proof of payment — success lands on /query showing the real server-side status)
+        if (req.method === 'GET' && url.pathname === '/payment/return') {
+            res.writeHead(302, { Location: '/' }); return res.end();
+        }
+        if (req.method === 'GET' && url.pathname === '/payment/success') {
             const target = `/query?outOrderNo=${encodeURIComponent(url.searchParams.get('outOrderNo') || '')}`;
             res.writeHead(302, { Location: target }); return res.end();
         }

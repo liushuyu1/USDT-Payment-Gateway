@@ -145,9 +145,17 @@ public class DspayMockMerchant {
         send(exchange, 200, "{\"code\":\"SUCCESS\",\"msg\":\"ok\"}");
     }
 
+    /**
+     * 支付回跳：returnUrl（未支付/取消返回）→ 商店首页；successRedirectUrl（支付成功）→ 订单查询。
+     * 跳转本身不是支付证明，success 落到 /query 展示服务端查询到的真实订单状态。
+     */
     static void landing(HttpExchange exchange) throws IOException {
         String outOrderNo = query(exchange.getRequestURI().getRawQuery()).getOrDefault("outOrderNo", "");
-        send(exchange, 200, "{\"message\":\"Redirect is not proof of payment; call POST /dspay/public/order/query\",\"outOrderNo\":\"" + esc(outOrderNo) + "\"}");
+        boolean success = exchange.getRequestURI().getPath().endsWith("/success");
+        String target = success ? "/query?outOrderNo=" + enc(outOrderNo) : "/";
+        exchange.getResponseHeaders().set("Location", target);
+        exchange.sendResponseHeaders(302, -1);
+        exchange.close();
     }
 
     static String hmac(String payload, String secret) {
