@@ -49,7 +49,7 @@ node src/server.js
 
 Open `Demo/front-end/index.html` and click Pay Now. Expose port 3000 through ngrok or similar when testing webhooks, then configure that public `/notify` URL in the merchant portal.
 
-The frontend reuses one `outOrderNo` within the browser session so repeated create attempts exercise the idempotent create-order contract.
+The front end displays an editable Order ID (`outOrderNo`). The refresh button generates a new ID each time; Pay Now submits the displayed ID. Use a new ID for each new order. Reuse the original ID and identical business fields only when retrying the same order. The backend uses the supplied value, or generates one when none is supplied.
 
 ## Run Java
 
@@ -83,4 +83,4 @@ export PUBLIC_BASE_URL="http://localhost:3000"
 | GET | `/payment/return` | Timeout landing; Node/PHP demo queries DSPay |
 | GET | `/payment/success` | Success landing; Node/PHP demo queries DSPay |
 
-In production, store the secret in KMS, add HTTP timeouts and bounded retries, reuse the same `outOrderNo` on retries, process webhooks idempotently, and fulfill only after a verified webhook or server-side query reports `COMPLETED`. A browser redirect is never proof of payment. Both URLs are optional: `returnUrl` is used only when the order times out, while `successRedirectUrl` is used only after completion. Checkout becomes unviewable 180 days after order creation and must not be used as a permanent order-details URL.
+In production, store the secret in KMS and assign a fresh `outOrderNo` to every new order. Only a network retry of the same logical create request should reuse its original `outOrderNo` and identical business fields. Add HTTP timeouts and bounded retries, process webhooks idempotently, and fulfill only after a verified webhook or server-side query reports `COMPLETED`. A browser redirect is never proof of payment. Both URLs are optional: `returnUrl` is used only when the order times out, while `successRedirectUrl` is used only after completion. Checkout becomes unviewable 180 days after order creation and must not be used as a permanent order-details URL.

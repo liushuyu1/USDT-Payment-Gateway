@@ -17,6 +17,7 @@ import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -49,7 +50,8 @@ public class DspayMockMerchant {
     static void create(HttpExchange exchange) throws IOException {
         if (!"GET".equals(exchange.getRequestMethod())) { send(exchange, 405, "{\"code\":\"FAIL\"}"); return; }
         Map<String, String> q = query(exchange.getRequestURI().getRawQuery());
-        String outOrderNo = q.getOrDefault("outOrderNo", "JAVA-DEMO-" + System.currentTimeMillis());
+        String outOrderNo = q.getOrDefault("outOrderNo",
+                "JAVA-DEMO-" + System.currentTimeMillis() + "-" + UUID.randomUUID().toString().replace("-", ""));
         String productPrice = q.getOrDefault("productPrice", "0.02");
         String productId = q.getOrDefault("productId", "NOVA-LIFETIME-001");
         String payAmount = q.getOrDefault("payAmount", "0.02");

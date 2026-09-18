@@ -23,7 +23,7 @@
 - [Chapter 9: FAQ](#chapter-9-faq)
 - [Appendix A: Java Reference Integration](#appendix-a-java-reference-integration)
 - [Appendix B: Node.js Reference Integration](#appendix-b-nodejs-reference-integration)
-- [Appendix C: Error Code Reference](#appendix-c-error-code-reference)
+- [Appendix C: Merchant Integration Error Codes](#appendix-c-error-code-reference)
 
 ---
 
@@ -487,7 +487,7 @@ signature = lowercaseHex(HMAC_SHA256(apiSecret, canonical UTF-8 string))
 - Canonicalize `attach` recursively by sorted object keys and compact JSON; normalize numeric zero to `0` and remove insignificant trailing zeros.
 - Preserve `allowedPaymentMethods` order, remove duplicates, join each entry as `networkId|contractAddress`, comma-separated; lowercase `0x` addresses.
 
-`merchantNo + outOrderNo` is the idempotency key. An identical retry returns the original `orderNo/checkoutUrl/expireAt`. A retry with different business fields returns code `40901` with “Merchant order number has already been used”. Always reuse the original `outOrderNo` when retrying.
+`merchantNo + outOrderNo` is the idempotency key. Generate a new `outOrderNo` for every new order; never reuse one across distinct orders in the same browser session. An identical network retry of the same logical create request may reuse its original `outOrderNo` and returns the original `orderNo/checkoutUrl/expireAt`. Reusing that number with different business fields returns code `40901` with “Merchant order number has already been used”.
 
 ### 4.5 Checkout Behavior and Redirects
 
@@ -877,7 +877,7 @@ Content-Type: application/json
 - ✅ `{"code":"SUCCESS","extra":"x"}` (extra fields tolerated)
 - ✅ `{"code":"SUCCESS","msg":"any message"}` (`msg` content is not checked)
 
-**Failure response**: a non-2xx status, or a body that fails the JSON rules above, triggers a [DSPay](#term-dspay) retry.
+**Failure response**: merchants may return `{"code":"FAIL","msg":"specific error"}` (`msg` is optional). [DSPay](#term-dspay) logs `FAIL` and the merchant's `msg` at error level, then retries. Non-2xx responses and other non-`SUCCESS` bodies also trigger retries. Only HTTP 2xx with a top-level, case-sensitive `SUCCESS` stops retries.
 
 **Retry policy** (escalating retry with async compensation):
 
@@ -937,7 +937,7 @@ POST /dspay/public/order/query
 | `timestamp` | Yes | Yes | Unix milliseconds; absolute server-time difference must not exceed 300000 ms |
 | `signature` | Yes | No | Lowercase HMAC-SHA256 hexadecimal string, exactly 64 characters |
 
-When both identifiers are present, the query uses an AND match. Exclude `signature` and null/absent fields, then sort all remaining parameter names in ascending ASCII order. Preserve an explicitly supplied empty string as `key=`.
+If both identifiers are absent, `null`, or blank, the API returns `40002 ORDER_QUERY_IDENTIFIER_REQUIRED` (order number and merchant order number cannot both be empty). When both identifiers are present, the query uses an AND match. Exclude `signature` and null/absent fields, then sort all remaining parameter names in ascending ASCII order. Preserve an explicitly supplied empty string as `key=`.
 
 Example when querying by `orderNo`:
 
@@ -1324,18 +1324,16 @@ The create flow is: **merchant backend signs → calls the public create API →
 [↑ Back to Table of Contents](#table-of-contents)
 
 <a id="appendix-c-error-code-reference"></a>
-## Appendix C: Error Code Reference
+## Appendix C: Merchant Integration Error Codes
 
-Source: `DspayExceptionConstant.java`, grouped by error-code range.
+Lists errors relevant to public order creation, active query, and the payer-facing cashier.
 
 #### General Errors (400xx)
 
 | code | msg | Description |
 |------|------|------|
 | <a id="error-40001"></a>40001 | PARAM_ERROR | Parameter validation failed. |
-| <a id="error-40101"></a>40101 | UNAUTHORIZED | Not authenticated. |
-| <a id="error-40301"></a>40301 | FORBIDDEN | Insufficient permissions. |
-| <a id="error-40401"></a>40401 | NOT_FOUND | Resource not found. |
+| <a id="error-40002"></a>40002 | ORDER_QUERY_IDENTIFIER_REQUIRED | `orderNo` and `outOrderNo` cannot both be empty in an active query. |
 | <a id="error-40901"></a>40901 | STATE_CONFLICT | Merchant order number has already been used; the same merchant retried an `outOrderNo` with different business fields. |
 | <a id="error-50000"></a>50000 | INTERNAL_ERROR | Internal service error. |
 
@@ -1352,11 +1350,8 @@ Source: `DspayExceptionConstant.java`, grouped by error-code range.
 | code | msg | Description |
 |------|------|------|
 | <a id="error-50601"></a>50601 | ORDER_NOT_FOUND | Order does not exist. |
-| <a id="error-50603"></a>50603 | ORDER_ALREADY_PAID | Order has already been paid. |
 | <a id="error-50604"></a>50604 | ORDER_EXPIRED | Order has expired. |
 | <a id="error-50605"></a>50605 | ORDER_STATUS_NOT_ALLOWED | Order status does not permit this operation. |
-| <a id="error-50606"></a>50606 | TX_HASH_INVALID | Transaction hash is invalid. |
-| <a id="error-50608"></a>50608 | TX_HASH_ALREADY_USED | Transaction hash has already been used (supplement only; refund no longer validates refundTxHash). |
 | <a id="error-50609"></a>50609 | NO_ENABLED_ADDRESS | No `ENABLED` receiving address (merchant has not configured one for this [networkId](#term-networkid) / chain). |
 | <a id="error-50610"></a>50610 | ORDER_CREATE_BUSY | Temporarily busy under concurrent requests; retry the same request later. |
 | <a id="error-50611"></a>50611 | SUFFIX_EXHAUSTED | No suffix is currently available for the same payment combination, receiving address and original amount; wait for pending orders to complete or close before retrying. |
@@ -1368,21 +1363,6 @@ Source: `DspayExceptionConstant.java`, grouped by error-code range.
 
 | code | msg | Description |
 |------|------|------|
-| <a id="error-50702"></a>50702 | ADDRESS_FORMAT_INVALID | Address format is invalid. |
-| <a id="error-50703"></a>50703 | ADDRESS_NOT_FOUND | Address does not exist. |
-| <a id="error-50704"></a>50704 | ADDRESS_NOT_IN_WALLET | Address does not belong to the current wallet. |
-| <a id="error-50705"></a>50705 | ADDRESS_NETWORK_MISMATCH | Address does not match the network. |
-| <a id="error-50706"></a>50706 | CHAIN_ADDRESS_ALREADY_BOUND | Address on this chain is already bound. |
 | <a id="error-50707"></a>50707 | CHAIN_NOT_SUPPORTED | Chain not supported ([networkId](#term-networkid) is not in the 9-chain whitelist or the chain is disabled). |
-
-#### SIWE Authentication (509xx)
-
-| code | msg | Description |
-|------|------|------|
-| <a id="error-50901"></a>50901 | SIWE_NONCE_NOT_FOUND | [SIWE](#term-siwe) nonce does not exist. |
-| <a id="error-50902"></a>50902 | SIWE_NONCE_EXPIRED | [SIWE](#term-siwe) nonce has expired (TTL 5 minutes). |
-| <a id="error-50903"></a>50903 | SIWE_SIGNATURE_INVALID | [SIWE](#term-siwe) signature is invalid (ecrecover-recovered address does not match). |
-| <a id="error-50904"></a>50904 | SIWE_DOMAIN_MISMATCH | [SIWE](#term-siwe) domain mismatch. |
-| <a id="error-50905"></a>50905 | SIWE_MESSAGE_INVALID | [SIWE](#term-siwe) message is invalid. |
 
 [↑ Back to Table of Contents](#table-of-contents)

@@ -20,7 +20,7 @@ function jsonResponse($status, $body)
 function orderData($merchantNo, $publicBase)
 {
     $outOrderNo = isset($_GET['outOrderNo']) && trim($_GET['outOrderNo']) !== ''
-        ? trim($_GET['outOrderNo']) : 'PHP-' . intval(microtime(true) * 1000);
+        ? trim($_GET['outOrderNo']) : str_replace('.', '', uniqid('PHP-', true));
     return array(
         'merchantNo' => $merchantNo,
         'outOrderNo' => $outOrderNo,

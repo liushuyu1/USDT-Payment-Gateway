@@ -47,9 +47,8 @@ npm test
 
 ## 流程
 
-1. 前端点击 Pay Now，请求本地商户后端 `GET /create`。
-   前端在当前会话内复用同一个 `outOrderNo`，用于演示创建接口幂等重试。
-2. 商户后端生成唯一 `outOrderNo`，构造完整创建请求并计算 HMAC。
+1. 前端展示可编辑的 Order ID（`outOrderNo`），刷新按钮每次生成新号；点击 Pay Now 时，使用当前填写的订单号请求本地商户后端 `GET /create`。每笔新订单须使用新号，仅重试同一笔订单时复用原号和相同业务字段。
+2. 商户后端使用传入的 `outOrderNo`（未传时生成），构造完整创建请求并计算 HMAC。
 3. 商户后端调用 `POST /dspay/public/order/create`。
 4. DSPay 返回 `orderNo` 和 `checkoutUrl`。
 5. 商户后端 302 跳转到 `checkoutUrl`。
@@ -112,7 +111,7 @@ export PUBLIC_BASE_URL="http://localhost:3000"
 ## 生产实现注意
 
 - `apiSecret` 存入 KMS/密钥管理服务，不写死在代码中。
-- HTTP 请求配置连接/读取超时和有限重试；重试复用同一 `outOrderNo`。
+- 每笔新订单生成新的 `outOrderNo`；仅同一笔订单的网络超时重试复用原 `outOrderNo` 和相同业务字段。HTTP 请求还需配置连接/读取超时和有限重试。
 - `returnUrl`和`successRedirectUrl`均为可选字段；`returnUrl`仅用于订单超时，`successRedirectUrl`仅用于订单完成。未配置对应URL时，DSPay停留当前页面。
 - `checkoutUrl`在订单创建180天后不再允许查看，不能作为永久订单详情入口。
 - 回调先验签，再幂等更新本地订单，事务成功后才返回 `{"code":"SUCCESS"}`。

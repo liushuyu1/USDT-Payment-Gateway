@@ -23,7 +23,7 @@
 - [第 9 章：FAQ](#第-9-章-faq)
 - [附录 A：Java 综合接入示例](#附录-a-java-综合接入示例)
 - [附录 B：Node.js 综合接入示例](#附录-b-nodejs-综合接入示例)
-- [附录 C：错误码完整列表](#附录-c错误码完整列表)
+- [附录 C：商户集成错误码](#附录-c错误码完整列表)
 
 ---
 
@@ -545,9 +545,10 @@ signature = lowercaseHex(HMAC_SHA256(apiSecret, canonicalString UTF-8))
 
 `merchantNo + outOrderNo` 是唯一幂等键：
 
+- 每笔新订单必须生成新的 `outOrderNo`；不能在会话内给不同订单复用。
 - 重复请求且业务字段一致：返回首次创建的同一 `orderNo/checkoutUrl/expireAt`，不延长订单时间。
 - 幂等键相同但业务字段不同：返回错误码`40901`，错误信息“商户订单号已被使用”（`Merchant order number has already been used`）。
-- 商户代码重试时必须复用原 `outOrderNo`。
+- 仅同一笔订单的网络超时重试复用原 `outOrderNo`，并保持业务字段一致。
 
 ### 4.5 收银台行为和跳转
 
@@ -938,7 +939,7 @@ Content-Type: application/json
 - ✅ `{"code":"SUCCESS","extra":"x"}`（额外字段可容忍）
 - ✅ `{"code":"SUCCESS","msg":"any message"}`（msg 内容不校验）
 
-**失败响应**：非 2xx，或响应 body 不满足上述 JSON 规则，都会触发 [DSPay](#term-dspay) 重试。
+**失败响应**：商户可返回 `{"code":"FAIL","msg":"具体错误原因"}`（`msg` 可选）。[DSPay](#term-dspay) 将 `FAIL` 与商户填写的 `msg` 记为 error 日志，并继续重试；HTTP 非 2xx 或其他非 `SUCCESS` 响应也会重试。只有 HTTP 2xx 且顶层 `code` 严格为 `SUCCESS` 才停止重试。
 
 **重试策略**：
 
@@ -998,7 +999,7 @@ Content-Type: application/json
 | `timestamp` | 是 | 是 | Unix 毫秒时间戳；与服务端时间差绝对值不得超过 300000 毫秒 |
 | `signature` | 是 | 否 | HMAC-SHA256 小写十六进制字符串，固定 64 个字符 |
 
-同时传两个订单号时按 AND 匹配。排除 `signature` 和未传、`null`字段后，其余字段按参数名ASCII升序拼接；显式空字符串保留为`key=`。
+两个订单号都未传、为 `null` 或空白字符串时，返回 `40002 ORDER_QUERY_IDENTIFIER_REQUIRED`（订单号和商户订单号不能同时为空）。同时传两个订单号时按 AND 匹配。排除 `signature` 和未传、`null`字段后，其余字段按参数名ASCII升序拼接；显式空字符串保留为`key=`。
 
 ```text
 merchantNo=DSM2080260022215368706&orderNo=1949695024925671424&timestamp=1787292500000
@@ -1388,18 +1389,16 @@ Node.js 接入只维护一份权威实现：[`Demo/back-end/nodejs`](../Demo/bac
 [↑ 返回目录](#目录)
 
 <a id="附录-c错误码完整列表"></a>
-## 附录 C：错误码完整列表
+## 附录 C：商户集成错误码
 
-来源：`DspayExceptionConstant.java`，按错误码段分组。
+仅列商户后端公开下单、主动查询及用户收银台可能遇到的错误码。
 
 #### 通用错误（400xx）
 
 | code | msg | 说明 |
 |------|------|------|
 | <a id="error-40001"></a>40001 | PARAM_ERROR | 参数校验失败 |
-| <a id="error-40101"></a>40101 | UNAUTHORIZED | 未登录 |
-| <a id="error-40301"></a>40301 | FORBIDDEN | 无权限 |
-| <a id="error-40401"></a>40401 | NOT_FOUND | 资源不存在 |
+| <a id="error-40002"></a>40002 | ORDER_QUERY_IDENTIFIER_REQUIRED | 主动查询时 `orderNo` 和 `outOrderNo` 不能同时为空 |
 | <a id="error-40901"></a>40901 | STATE_CONFLICT | 商户订单号已被使用；同一商户复用 `outOrderNo` 但请求业务字段不一致 |
 | <a id="error-50000"></a>50000 | INTERNAL_ERROR | 服务内部异常 |
 
@@ -1416,11 +1415,8 @@ Node.js 接入只维护一份权威实现：[`Demo/back-end/nodejs`](../Demo/bac
 | code | msg | 说明 |
 |------|------|------|
 | <a id="error-50601"></a>50601 | ORDER_NOT_FOUND | 订单不存在 |
-| <a id="error-50603"></a>50603 | ORDER_ALREADY_PAID | 订单已支付 |
 | <a id="error-50604"></a>50604 | ORDER_EXPIRED | 订单已过期 |
 | <a id="error-50605"></a>50605 | ORDER_STATUS_NOT_ALLOWED | 订单状态不允许此操作 |
-| <a id="error-50606"></a>50606 | TX_HASH_INVALID | 交易哈希无效 |
-| <a id="error-50608"></a>50608 | TX_HASH_ALREADY_USED | 交易哈希已被使用（仅 supplement 补单校验；refund 退款不再校验 refundTxHash 防重放） |
 | <a id="error-50609"></a>50609 | NO_ENABLED_ADDRESS | 无可用收款地址（商户未为该 [networkId](#term-networkid)（链）配 ENABLED 地址） |
 | <a id="error-50610"></a>50610 | ORDER_CREATE_BUSY | 当前并发繁忙；保持同一请求稍后重试 |
 | <a id="error-50611"></a>50611 | SUFFIX_EXHAUSTED | 当前相同支付组合、收款地址和原始金额下没有可用尾数；等待待支付订单完成或关闭后再试 |
@@ -1432,21 +1428,6 @@ Node.js 接入只维护一份权威实现：[`Demo/back-end/nodejs`](../Demo/bac
 
 | code | msg | 说明 |
 |------|------|------|
-| <a id="error-50702"></a>50702 | ADDRESS_FORMAT_INVALID | 地址格式无效 |
-| <a id="error-50703"></a>50703 | ADDRESS_NOT_FOUND | 地址不存在 |
-| <a id="error-50704"></a>50704 | ADDRESS_NOT_IN_WALLET | 地址不属于当前钱包 |
-| <a id="error-50705"></a>50705 | ADDRESS_NETWORK_MISMATCH | 地址与网络不匹配 |
-| <a id="error-50706"></a>50706 | CHAIN_ADDRESS_ALREADY_BOUND | 该链地址已被绑定 |
 | <a id="error-50707"></a>50707 | CHAIN_NOT_SUPPORTED | 链不受支持（[networkId](#term-networkid) 不在 9 链白名单或链已禁用） |
-
-#### SIWE 签名认证相关（509xx）
-
-| code | msg | 说明 |
-|------|------|------|
-| <a id="error-50901"></a>50901 | SIWE_NONCE_NOT_FOUND | [SIWE](#term-siwe) nonce 不存在 |
-| <a id="error-50902"></a>50902 | SIWE_NONCE_EXPIRED | [SIWE](#term-siwe) nonce 已过期（TTL 5 分钟） |
-| <a id="error-50903"></a>50903 | SIWE_SIGNATURE_INVALID | [SIWE](#term-siwe) 签名无效（ecrecover 恢复地址不匹配） |
-| <a id="error-50904"></a>50904 | SIWE_DOMAIN_MISMATCH | [SIWE](#term-siwe) domain 不匹配 |
-| <a id="error-50905"></a>50905 | SIWE_MESSAGE_INVALID | [SIWE](#term-siwe) 消息无效 |
 
 [↑ 返回目录](#目录)

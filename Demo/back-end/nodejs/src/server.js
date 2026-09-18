@@ -1,6 +1,7 @@
 'use strict';
 
 const http = require('http');
+const crypto = require('crypto');
 const { URL } = require('url');
 const { signCreateOrder, signQuery, verifyCallback } = require('./signer');
 
@@ -36,7 +37,7 @@ async function post(path, body) {
 }
 
 async function createOrder(url, res) {
-    const outOrderNo = url.searchParams.get('outOrderNo') || `DEMO-${Date.now()}`;
+    const outOrderNo = url.searchParams.get('outOrderNo') || `DEMO-${Date.now()}-${crypto.randomBytes(8).toString('hex')}`;
     const order = {
         merchantNo: MERCHANT_NO,
         outOrderNo,
