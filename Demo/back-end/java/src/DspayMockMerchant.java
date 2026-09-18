@@ -12,6 +12,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
@@ -28,11 +31,14 @@ public class DspayMockMerchant {
     static final String PUBLIC_BASE = trimSlash(System.getProperty("publicBase", "http://localhost:" + PORT));
     static final String MERCHANT_NO = System.getProperty("merchantNo", "change-me");
     static final String API_SECRET = apiSecret();
+    /** 前端页面目录：默认仓库内 Demo/front-end（相对于 back-end/java 运行目录）；可用 -DfrontEndDir 覆盖。 */
+    static final Path FRONT_END_DIR = Paths.get(System.getProperty("frontEndDir", "../../front-end"));
     static final HttpClient HTTP = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
 
     public static void main(String[] args) throws IOException {
         if (DSPAY_BASE.isEmpty()) throw new IllegalStateException("-DdspayBase is required");
         HttpServer server = HttpServer.create(new InetSocketAddress(PORT), 0);
+        server.createContext("/", DspayMockMerchant::index);
         server.createContext("/create", DspayMockMerchant::create);
         server.createContext("/notify", DspayMockMerchant::notify);
         server.createContext("/payment/return", DspayMockMerchant::landing);
@@ -40,7 +46,30 @@ public class DspayMockMerchant {
         server.start();
         System.out.println("Mock merchant: " + PUBLIC_BASE);
         System.out.println("DSPay API: " + DSPAY_BASE);
+        System.out.println("Demo page: " + PUBLIC_BASE + "/  (served from " + FRONT_END_DIR.toAbsolutePath().normalize() + ")");
     }
+
+    /** GET / 托管 front-end/index.html —— 页面与 API 同源，浏览器直接打开 PUBLIC_BASE 即完整 Demo。 */
+    static void index(HttpExchange exchange) throws IOException {
+        String path = exchange.getRequestURI().getPath();
+        Path root = FRONT_END_DIR.toAbsolutePath().normalize();
+        Path file = ("/".equals(path) || "/index.html".equals(path))
+                ? root.resolve("index.html")
+                : root.resolve(path.substring(1)).normalize();
+        // 防路径穿越：解析后的绝对路径必须仍在 front-end 目录内
+        if (!file.startsWith(root) || !Files.isRegularFile(file)) {
+            send(exchange, 404, "{\"code\":\"NOT_FOUND\",\"path\":" + escJson(path) + "}");
+            return;
+        }
+        byte[] bytes = Files.readAllBytes(file);
+        exchange.getResponseHeaders().set("Content-Type",
+                file.toString().endsWith(".html") ? "text/html; charset=utf-8" : "application/octet-stream");
+        exchange.sendResponseHeaders(200, bytes.length);
+        exchange.getResponseBody().write(bytes);
+        exchange.close();
+    }
+
+    static String escJson(String value) { return "\"" + esc(value) + "\""; }
 
     static String apiSecret() {
         String value = System.getenv("API_SECRET");

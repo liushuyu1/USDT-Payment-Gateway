@@ -1,6 +1,8 @@
 'use strict';
 
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 const crypto = require('crypto');
 const { URL } = require('url');
 const { signCreateOrder, signQuery, verifyCallback } = require('./signer');
@@ -9,6 +11,8 @@ const PORT = Number(process.env.PORT || 3000);
 const DSPAY_BASE_URL = (process.env.DSPAY_BASE_URL || '').replace(/\/$/, '');
 const MERCHANT_NO = process.env.MERCHANT_NO || 'change-me';
 const API_SECRET = process.env.API_SECRET || 'change-me';
+// 前端页面目录：默认仓库内 Demo/front-end（相对 back-end/nodejs）；FRONT_END_DIR 环境变量可覆盖
+const FRONT_END_DIR = process.env.FRONT_END_DIR || path.resolve(__dirname, '../../front-end');
 const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 
 if (!DSPAY_BASE_URL) throw new Error('DSPAY_BASE_URL is required');
@@ -94,6 +98,15 @@ const server = http.createServer(async (req, res) => {
             const target = `/query?outOrderNo=${encodeURIComponent(url.searchParams.get('outOrderNo') || '')}`;
             res.writeHead(302, { Location: target }); return res.end();
         }
+        // GET / 托管 front-end 静态页面 —— 页面与 API 同源，浏览器直接打开 PUBLIC_BASE_URL 即完整 Demo
+        if (req.method === 'GET') {
+            const rel = (url.pathname === '/' || url.pathname === '/index.html') ? 'index.html' : decodeURIComponent(url.pathname).slice(1);
+            const file = path.resolve(FRONT_END_DIR, rel);
+            if (file.startsWith(FRONT_END_DIR) && fs.existsSync(file) && fs.statSync(file).isFile()) {
+                res.writeHead(200, { 'Content-Type': file.endsWith('.html') ? 'text/html; charset=utf-8' : 'application/octet-stream' });
+                return fs.createReadStream(file).pipe(res);
+            }
+        }
         json(res, 404, { code: 'NOT_FOUND' });
     } catch (error) {
         console.error(error);
@@ -105,4 +118,5 @@ server.listen(PORT, () => {
     console.log(`Mock merchant: ${PUBLIC_BASE_URL}`);
     console.log(`DSPay API: ${DSPAY_BASE_URL}`);
     console.log('GET /create -> server-side create order -> 302 checkoutUrl');
+    console.log(`Demo page: ${PUBLIC_BASE_URL}/ (served from ${FRONT_END_DIR})`);
 });

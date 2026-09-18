@@ -565,7 +565,6 @@
       </div>
     </main>
 
-    <script src="api-config.js"></script>
     <script>
       // Keep payAmount as a positive plain decimal string. The public create API
       // accepts up to 12 integer and 2 fractional digits; scientific notation
@@ -612,10 +611,8 @@
           return;
         }
 
-        // API 地址优先读 start.sh 生成的 DEMO_API_BASE（本地/服务器统一）。
-        // 无配置时：file:// 直开回退本机 3000；http 打开回退同源（配合反代部署）。
-        const fallback = window.location.protocol === "file:" ? "http://localhost:3000" : window.location.origin;
-        const baseUrl = (typeof window.DEMO_API_BASE === "string" && window.DEMO_API_BASE) || fallback;
+        // 页面由后端托管时（http://host:3000 打开）自动同源；file:// 双击打开回退本机 3000。
+        const baseUrl = window.location.protocol === "file:" ? "http://localhost:3000" : window.location.origin;
         const createOrderUrl = new URL(CREATE_ORDER_PATH, baseUrl);
         createOrderUrl.searchParams.set("payAmount", amount);
         createOrderUrl.searchParams.set("productPrice", amount);
