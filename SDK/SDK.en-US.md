@@ -1357,7 +1357,8 @@ Lists errors relevant to public order creation, active query, and the payer-faci
 | <a id="error-50611"></a>50611 | SUFFIX_EXHAUSTED | No suffix is currently available for the same payment combination, receiving address and original amount; wait for pending orders to complete or close before retrying. |
 | <a id="error-50612"></a>50612 | SUFFIX_PRECISION_SATURATED | The original amount exceeds 2 decimal places, leaving insufficient room for the 4-digit suffix within the fixed six-decimal scale. |
 | <a id="error-50613"></a>50613 | ORDER_SIGNATURE_INVALID | Signature verification failed for order creation or active query. |
-| <a id="error-50614"></a>50614 | ORDER_TIMESTAMP_EXPIRED | Order-creation or active-query timestamp outside the ±5-minute window. |
+| <a id="error-50614"></a>50614 | ORDER_TIMESTAMP_EXPIRED | Order-creation timestamp outside the ±5-minute window. |
+| <a id="error-50617"></a>50617 | ORDER_QUERY_TIMESTAMP_EXPIRED | Active-query timestamp outside the ±5-minute window. |
 
 #### Address (507xx)
 

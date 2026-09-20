@@ -1422,7 +1422,8 @@ Node.js 接入只维护一份权威实现：[`Demo/back-end/nodejs`](../Demo/bac
 | <a id="error-50611"></a>50611 | SUFFIX_EXHAUSTED | 当前相同支付组合、收款地址和原始金额下没有可用尾数；等待待支付订单完成或关闭后再试 |
 | <a id="error-50612"></a>50612 | SUFFIX_PRECISION_SATURATED | 原始金额超过 2 位小数，无法在固定 6 位精度内保留 4 位尾数空间 |
 | <a id="error-50613"></a>50613 | ORDER_SIGNATURE_INVALID | 创建订单或主动查询的签名校验失败 |
-| <a id="error-50614"></a>50614 | ORDER_TIMESTAMP_EXPIRED | 创建订单或主动查询的时间戳超出 ±5 分钟窗口 |
+| <a id="error-50614"></a>50614 | ORDER_TIMESTAMP_EXPIRED | 创建订单的时间戳超出 ±5 分钟窗口 |
+| <a id="error-50617"></a>50617 | ORDER_QUERY_TIMESTAMP_EXPIRED | 主动查询的时间戳超出 ±5 分钟窗口 |
 
 #### 地址相关（507xx）
 
