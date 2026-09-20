@@ -89,11 +89,19 @@ export API_SECRET
 echo "Starting server..."
 
 cd "$ROOT"
-mkdir -p "$LOG_DIR"
+mkdir -p "$LOG_DIR" "$ROOT/build"
 JAVA_ARGS=("-Dport=$PORT" "-DdspayBase=$DSPAY_BASE_URL" "-DpublicBase=$PUBLIC_BASE_URL" "-DmerchantNo=$MERCHANT_NO")
+# Compile first: single-file source launch (java Foo.java) is a Java 11+ feature;
+# javac + java -cp keeps the demo runnable on JDK 8. (javac -d requires the
+# directory to exist beforehand on JDK 8, hence mkdir above.)
+if ! javac -d "$ROOT/build" src/DspayMockMerchant.java >> "$LOG_FILE" 2>&1; then
+    echo "Compilation failed. Recent logs:" >&2
+    tail -n 20 "$LOG_FILE" >&2
+    exit 1
+fi
 printf '\n=== Starting %s ===\n' "$(date)" >> "$LOG_FILE"
 LOG_START_LINE=$(wc -l < "$LOG_FILE")
-nohup java "${JAVA_ARGS[@]}" src/DspayMockMerchant.java >> "$LOG_FILE" 2>&1 &
+nohup java "${JAVA_ARGS[@]}" -cp "$ROOT/build" DspayMockMerchant >> "$LOG_FILE" 2>&1 &
 PID=$!
 echo $PID > "$PID_FILE"
 
