@@ -19,7 +19,7 @@ if [ -f "$PID_FILE" ]; then
 fi
 
 if ! command -v java >/dev/null 2>&1; then
-    echo "Java not found. Install JDK 11 or newer before starting." >&2
+    echo "Java not found. Install JDK 8 or newer before starting." >&2
     exit 1
 fi
 JAVA_VERSION_LINE=$(java -version 2>&1 | head -n 1)
@@ -30,8 +30,8 @@ if [ "$JAVA_MAJOR" = 1 ]; then
     JAVA_MINOR="${JAVA_VERSION#*.}"
     JAVA_MAJOR="${JAVA_MINOR%%.*}"
 fi
-if ! [[ "$JAVA_MAJOR" =~ ^[0-9]+$ ]] || (( JAVA_MAJOR < 11 )); then
-    echo "JDK 11 or newer is required. Current: $JAVA_VERSION_LINE" >&2
+if ! [[ "$JAVA_MAJOR" =~ ^[0-9]+$ ]] || (( JAVA_MAJOR < 8 )); then
+    echo "JDK 8 or newer is required. Current: $JAVA_VERSION_LINE" >&2
     exit 1
 fi
 

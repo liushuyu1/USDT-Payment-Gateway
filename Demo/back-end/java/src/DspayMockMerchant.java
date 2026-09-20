@@ -5,12 +5,13 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -33,7 +34,6 @@ public class DspayMockMerchant {
     static final String API_SECRET = apiSecret();
     /** 前端页面目录：默认仓库内 Demo/front-end（相对于 back-end/java 运行目录）；可用 -DfrontEndDir 覆盖。 */
     static final Path FRONT_END_DIR = Paths.get(System.getProperty("frontEndDir", "../../front-end"));
-    static final HttpClient HTTP = HttpClient.newBuilder().version(HttpClient.Version.HTTP_1_1).build();
 
     public static void main(String[] args) throws IOException {
         if (DSPAY_BASE.isEmpty()) throw new IllegalStateException("-DdspayBase is required");
@@ -118,17 +118,16 @@ public class DspayMockMerchant {
                 "\"timestamp\":" + timestamp + "," +
                 "\"signature\":\"" + signature + "\"}";
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create(DSPAY_BASE + "/dspay/public/order/create"))
-                    .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body)).build();
-            HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
-            if (response.statusCode() / 100 != 2) { send(exchange, response.statusCode(), response.body()); return; }
-            String checkoutUrl = jsonString(response.body(), "checkoutUrl");
-            if (checkoutUrl == null) { send(exchange, 502, response.body()); return; }
+            String[] response = dspayPost("/dspay/public/order/create", body);
+            int status = Integer.parseInt(response[0]);
+            if (status / 100 != 2) { send(exchange, status, response[1]); return; }
+            String checkoutUrl = jsonString(response[1], "checkoutUrl");
+            if (checkoutUrl == null) { send(exchange, 502, response[1]); return; }
             exchange.getResponseHeaders().set("Location", checkoutUrl);
             exchange.sendResponseHeaders(302, -1);
             exchange.close();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); send(exchange, 500, "{\"code\":\"INTERRUPTED\"}");
+        } catch (IOException e) {
+            send(exchange, 502, "{\"code\":\"DSPAY_UNREACHABLE\",\"msg\":" + escJson(e.getMessage()) + "}");
         }
     }
 
@@ -156,18 +155,17 @@ public class DspayMockMerchant {
         if (outOrderNo != null && !outOrderNo.isEmpty()) body.append("\"outOrderNo\":\"").append(esc(outOrderNo)).append("\",");
         body.append("\"timestamp\":").append(timestamp).append(",\"signature\":\"").append(signature).append("\"}");
         try {
-            HttpRequest request = HttpRequest.newBuilder(URI.create(DSPAY_BASE + "/dspay/public/order/query"))
-                    .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body.toString())).build();
-            HttpResponse<String> response = HTTP.send(request, HttpResponse.BodyHandlers.ofString());
-            send(exchange, response.statusCode() / 100 == 2 ? 200 : response.statusCode(), response.body());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt(); send(exchange, 500, "{\"code\":\"INTERRUPTED\"}");
+            String[] response = dspayPost("/dspay/public/order/query", body.toString());
+            int status = Integer.parseInt(response[0]);
+            send(exchange, status / 100 == 2 ? 200 : status, response[1]);
+        } catch (IOException e) {
+            send(exchange, 502, "{\"code\":\"DSPAY_UNREACHABLE\",\"msg\":" + escJson(e.getMessage()) + "}");
         }
     }
 
     static void notify(HttpExchange exchange) throws IOException {
         if (!"POST".equals(exchange.getRequestMethod())) { send(exchange, 405, "{\"code\":\"FAIL\"}"); return; }
-        String raw = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+        String raw = new String(readAll(exchange.getRequestBody()), StandardCharsets.UTF_8);
         String signature = exchange.getRequestHeaders().getFirst("X-DSPay-Signature");
         String expected;
         try { expected = hmac(canonicalCallback(raw), API_SECRET); }
@@ -190,6 +188,39 @@ public class DspayMockMerchant {
         exchange.getResponseHeaders().set("Location", target);
         exchange.sendResponseHeaders(302, -1);
         exchange.close();
+    }
+
+    /**
+     * Java 8 compatible server-to-server POST (HttpURLConnection, zero-dependency).
+     * Returns {statusCode, responseBody}; 4xx/5xx bodies are surfaced to the caller.
+     */
+    static String[] dspayPost(String path, String jsonBody) throws IOException {
+        HttpURLConnection conn = (HttpURLConnection) URI.create(DSPAY_BASE + path).toURL().openConnection();
+        try {
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setConnectTimeout(10_000);
+            conn.setReadTimeout(15_000);
+            conn.setDoOutput(true);
+            try (OutputStream out = conn.getOutputStream()) {
+                out.write(jsonBody.getBytes(StandardCharsets.UTF_8));
+            }
+            int status = conn.getResponseCode();
+            InputStream err = conn.getErrorStream();
+            String body = new String(readAll(err != null ? err : conn.getInputStream()), StandardCharsets.UTF_8);
+            return new String[]{String.valueOf(status), body};
+        } finally {
+            conn.disconnect();
+        }
+    }
+
+    /** Java 8 compatible full-read (InputStream.readAllBytes is Java 9+). */
+    static byte[] readAll(InputStream in) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buffer = new byte[4096];
+        int n;
+        while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
+        return out.toByteArray();
     }
 
     static String hmac(String payload, String secret) {
@@ -376,7 +407,7 @@ public class DspayMockMerchant {
         if (raw == null) return values;
         for (String pair : raw.split("&")) {
             int i = pair.indexOf('=');
-            if (i > 0) values.put(URLDecoder.decode(pair.substring(0, i), StandardCharsets.UTF_8), URLDecoder.decode(pair.substring(i + 1), StandardCharsets.UTF_8));
+            if (i > 0) values.put(urlDecode(pair.substring(0, i)), urlDecode(pair.substring(i + 1)));
         }
         return values;
     }
@@ -388,7 +419,16 @@ public class DspayMockMerchant {
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8); e.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
         e.sendResponseHeaders(status, bytes.length); e.getResponseBody().write(bytes); e.close();
     }
-    static String enc(String value) { return URLEncoder.encode(value, StandardCharsets.UTF_8); }
+    /** Java 8 compatible URL encode/decode (Charset overloads are Java 10+; UTF-8 is always supported). */
+    static String enc(String value) {
+        try { return URLEncoder.encode(value, "UTF-8"); }
+        catch (java.io.UnsupportedEncodingException e) { throw new IllegalStateException(e); }
+    }
+
+    static String urlDecode(String value) {
+        try { return URLDecoder.decode(value, "UTF-8"); }
+        catch (java.io.UnsupportedEncodingException e) { throw new IllegalStateException(e); }
+    }
     static String esc(String value) { return value.replace("\\", "\\\\").replace("\"", "\\\""); }
     static String trimSlash(String value) { return value.endsWith("/") ? value.substring(0, value.length() - 1) : value; }
 }

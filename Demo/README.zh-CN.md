@@ -11,7 +11,7 @@ Demo/
 ├── front-end/index.html
 └── back-end/
     ├── nodejs/   Node.js 18.20.8，零 npm 依赖
-    ├── java/     JDK 11+，零外部依赖
+    ├── java/     JDK 8+，零外部依赖
     └── php/      PHP 5.6+，无需 Composer
 ```
 
@@ -20,7 +20,7 @@ Demo/
 | Demo | 最低版本 | 已验证版本 | 依赖说明 |
 |------|----------|------------|----------|
 | Node.js | Node.js `18.20.8` | Node.js `18.20.8` + npm `10.8.2` | 零 npm 依赖；提供 `.nvmrc` |
-| Java | JDK 11 | Microsoft OpenJDK `11.0.27`；Temurin `21.0.11` | 零 Maven/Gradle 依赖 |
+| Java | JDK 8 | `--release 8` 编译；已在 Temurin `21.0.11` 验证 | 零 Maven/Gradle 依赖 |
 | PHP | PHP 5.6 | PHP CLI `5.6.40`、`8.5.10` | 无需 Composer |
 | 前端 | 支持 `crypto.randomUUID()` 的现代浏览器 | Chrome `151.0.7922.175` | 单文件 HTML，无构建步骤 |
 

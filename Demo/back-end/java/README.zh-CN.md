@@ -2,9 +2,9 @@
 
 # Java Mock Merchant
 
-JDK 11+，零外部依赖。该服务真实调用 `POST /dspay/public/order/create`，并使用响应中的 `checkoutUrl` 跳转收银台。
+JDK 8+，零外部依赖。该服务真实调用 `POST /dspay/public/order/create`，并使用响应中的 `checkoutUrl` 跳转收银台。
 
-版本基线：最低 JDK 11；已验证 Microsoft OpenJDK `11.0.27` 和 Eclipse Temurin `21.0.11`。无需 Maven/Gradle，源码只使用 JDK 标准库，并通过 JDK 11 单文件源码启动。
+版本基线：最低 JDK 8；使用 `javac --release 8` 编译，已在 Eclipse Temurin `21.0.11` 验证。无需 Maven/Gradle，源码只使用 JDK 标准库。`./start.sh` 会先编译到 `build/` 再以 `java -cp build DspayMockMerchant` 运行（兼容不支持单文件源码启动的 JDK 8）。
 
 > 以下命令中的 `REPLACE_WITH_REAL_MERCHANT_NO`、`REPLACE_WITH_REAL_API_SECRET` 和 `REPLACE_WITH_REAL_DSPAY_API_HOST` 是占位值，执行前必须替换为真实参数。`merchantNo` 和 `apiSecret` 从DSPay商户后台获取。
 

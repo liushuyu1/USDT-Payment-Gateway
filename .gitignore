@@ -5,3 +5,4 @@ logs/
 server.pid
 *.iml
 node_modules/
+build/
