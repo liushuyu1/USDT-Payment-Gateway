@@ -63,15 +63,16 @@ java -DmerchantNo="REPLACE_WITH_REAL_MERCHANT_NO" -DapiSecret="REPLACE_WITH_REAL
 
 ## Run PHP
 
-> Replace only the two `REPLACE_WITH_REAL_*` credential placeholders below. The production API and local redirect base are already populated. Do not copy Markdown link syntax into shell values.
+> Replace the three `REPLACE_WITH_REAL_*` placeholders below (the API host included) with real values from the DSPay Merchant Portal. Do not copy Markdown link syntax into shell values.
 
 ```bash
 cd Demo/back-end/php
 export MERCHANT_NO="REPLACE_WITH_REAL_MERCHANT_NO"
 export API_SECRET="REPLACE_WITH_REAL_API_SECRET"
-export DSPAY_BASE_URL="https://wallet.ds.pro"
+export DSPAY_BASE_URL="https://REPLACE_WITH_REAL_DSPAY_API_HOST"
 export PUBLIC_BASE_URL="http://localhost:3000"
 ./start.sh
+# foreground alternative: php -S 0.0.0.0:3000 server.php
 ```
 
 ## Demo endpoints

@@ -88,15 +88,16 @@ java \
 
 ## PHP 启动
 
-> 只需把下面两个 `REPLACE_WITH_REAL_*` 占位值替换为商户后台中的真实参数。正式API地址和本地回跳地址已经填写，不要复制Markdown链接语法到Shell命令中。
+> 把下面三个 `REPLACE_WITH_REAL_*` 占位值（含 API 地址）替换为商户后台的真实参数。不要复制 Markdown 链接语法到 Shell 命令中。
 
 ```bash
 cd Demo/back-end/php
 export MERCHANT_NO="REPLACE_WITH_REAL_MERCHANT_NO"
 export API_SECRET="REPLACE_WITH_REAL_API_SECRET"
-export DSPAY_BASE_URL="https://wallet.ds.pro"
+export DSPAY_BASE_URL="https://REPLACE_WITH_REAL_DSPAY_API_HOST"
 export PUBLIC_BASE_URL="http://localhost:3000"
 ./start.sh
+# 前台运行等价命令：php -S 0.0.0.0:3000 server.php
 ```
 
 ## 本地接口
