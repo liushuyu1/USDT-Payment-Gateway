@@ -22,6 +22,8 @@ cd Demo/back-end/nodejs
 ./start.sh
 ```
 
+前台交互运行可用 `npm start`（等价于 `node src/server.js`）。
+
 非交互运行时，先设置环境变量：
 
 ```bash
@@ -31,6 +33,8 @@ export DSPAY_BASE_URL="https://REPLACE_WITH_REAL_DSPAY_API_HOST"
 export PUBLIC_BASE_URL="http://localhost:3000"
 ./start.sh
 ```
+
+前台交互运行可用 `npm start`（等价于 `node src/server.js`）。
 
 - `GET /create`：签名预下单并 302 到响应中的 `checkoutUrl`
 - `GET /query?orderNo=...` 或 `?outOrderNo=...`：签名查询

@@ -44,7 +44,7 @@ export MERCHANT_NO="REPLACE_WITH_REAL_MERCHANT_NO"
 export API_SECRET="REPLACE_WITH_REAL_API_SECRET"
 export DSPAY_BASE_URL="https://REPLACE_WITH_REAL_DSPAY_API_HOST"
 export PUBLIC_BASE_URL="http://localhost:3000"
-node src/server.js
+npm start        # equivalent to: node src/server.js
 ```
 
 Every backend version also serves the store page itself: after `./start.sh`, open `http://localhost:3000` (or your `PUBLIC_BASE_URL`) and click Pay Now — page and API share the same origin, no extra static hosting needed. Opening `Demo/front-end/index.html` directly from disk also works locally (it falls back to `http://localhost:3000`). Expose port 3000 through ngrok or similar when testing webhooks, then configure that public `/notify` URL in the merchant portal. `FRONT_END_DIR` optionally points the backend at a different front-end directory (default: `../../front-end`).

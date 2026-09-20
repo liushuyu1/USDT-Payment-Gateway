@@ -66,7 +66,7 @@ export MERCHANT_NO="REPLACE_WITH_REAL_MERCHANT_NO"
 export API_SECRET="REPLACE_WITH_REAL_API_SECRET"
 export DSPAY_BASE_URL="https://REPLACE_WITH_REAL_DSPAY_API_HOST"
 export PUBLIC_BASE_URL="http://localhost:3000"
-node src/server.js
+npm start        # 等价于 node src/server.js
 ```
 
 三种语言后端都会直接托管商店页：执行 `./start.sh` 后，浏览器打开 `http://localhost:3000`（即 `PUBLIC_BASE_URL`）点击 Pay Now 即可——页面与接口同源，无需额外静态托管。本地也可以直接双击打开 `Demo/front-end/index.html`（页面会自动回退请求 `http://localhost:3000`）。可选环境变量 `FRONT_END_DIR` 可指定其他前端目录（默认 `../../front-end`）。
