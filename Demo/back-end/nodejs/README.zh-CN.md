@@ -31,10 +31,10 @@ export MERCHANT_NO="REPLACE_WITH_REAL_MERCHANT_NO"
 export API_SECRET="REPLACE_WITH_REAL_API_SECRET"
 export DSPAY_BASE_URL="https://REPLACE_WITH_REAL_DSPAY_API_HOST"
 export PUBLIC_BASE_URL="http://localhost:3000"
-./start.sh
+npm start        # 等价于 node src/server.js
 ```
 
-前台交互运行可用 `npm start`（等价于 `node src/server.js`）。
+后台运行可选 `./start.sh`（缺变量时交互提示，`./stop.sh` 停止）。
 
 - `GET /create`：签名预下单并 302 到响应中的 `checkoutUrl`
 - `GET /query?orderNo=...` 或 `?outOrderNo=...`：签名查询

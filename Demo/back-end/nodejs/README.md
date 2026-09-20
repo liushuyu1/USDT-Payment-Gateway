@@ -27,8 +27,8 @@ For non-interactive use, set the environment variables first:
 ```bash
 cd Demo/back-end/nodejs
 MERCHANT_NO="REPLACE_WITH_REAL_MERCHANT_NO" API_SECRET="REPLACE_WITH_REAL_API_SECRET" \
-DSPAY_BASE_URL="https://REPLACE_WITH_REAL_DSPAY_API_HOST" PUBLIC_BASE_URL="http://localhost:3000" ./start.sh
-# or interactively: npm start  (equivalent to node src/server.js)
+DSPAY_BASE_URL="https://REPLACE_WITH_REAL_DSPAY_API_HOST" PUBLIC_BASE_URL="http://localhost:3000" npm start
+# npm start is equivalent to node src/server.js; background alternative: ./start.sh (stop with ./stop.sh)
 ```
 
 - `GET /create`: server-to-server create, then 302 to returned `checkoutUrl`
