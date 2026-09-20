@@ -55,9 +55,10 @@ The front end displays an editable Order ID (`outOrderNo`). The refresh button g
 
 ```bash
 cd Demo/back-end/java
+mkdir -p build && javac -d build src/DspayMockMerchant.java
 java -DmerchantNo="REPLACE_WITH_REAL_MERCHANT_NO" -DapiSecret="REPLACE_WITH_REAL_API_SECRET" \
   -DdspayBase="https://REPLACE_WITH_REAL_DSPAY_API_HOST" \
-  -DpublicBase="http://localhost:3000" src/DspayMockMerchant.java
+  -DpublicBase="http://localhost:3000" -cp build DspayMockMerchant
 ```
 
 ## Run PHP

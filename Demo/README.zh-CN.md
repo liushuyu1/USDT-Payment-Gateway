@@ -77,12 +77,13 @@ node src/server.js
 
 ```bash
 cd Demo/back-end/java
+mkdir -p build && javac -d build src/DspayMockMerchant.java
 java \
   -DmerchantNo="REPLACE_WITH_REAL_MERCHANT_NO" \
   -DapiSecret="REPLACE_WITH_REAL_API_SECRET" \
   -DdspayBase="https://REPLACE_WITH_REAL_DSPAY_API_HOST" \
   -DpublicBase="http://localhost:3000" \
-  src/DspayMockMerchant.java
+  -cp build DspayMockMerchant
 ```
 
 ## PHP 启动

@@ -10,9 +10,10 @@ Runtime baseline: JDK 8 minimum; verified end-to-end on Amazon Corretto `1.8.0_5
 
 ```bash
 cd Demo/back-end/java
+mkdir -p build && javac -d build src/DspayMockMerchant.java
 java -DmerchantNo="REPLACE_WITH_REAL_MERCHANT_NO" -DapiSecret="REPLACE_WITH_REAL_API_SECRET" \
   -DdspayBase="https://REPLACE_WITH_REAL_DSPAY_API_HOST" -DpublicBase="http://localhost:3000" \
-  src/DspayMockMerchant.java
+  -cp build DspayMockMerchant
 ```
 
 For background use, run `./start.sh`. It prompts for `DSPAY_BASE_URL`, `PUBLIC_BASE_URL`, `MERCHANT_NO`, and `API_SECRET`; secret input is hidden. Set any of these environment variables beforehand to skip its prompt. `PORT` is optional and defaults to `3000`; `FRONT_END_DIR` optionally overrides the served front-end directory (default `../../front-end`). The script does not save entered values, so enter them again on the next start or provide them through the environment. Non-interactive runs require all four variables.
@@ -26,6 +27,7 @@ For background use, run `./start.sh`. It prompts for `DSPAY_BASE_URL`, `PUBLIC_B
 Compile and run the local test:
 
 ```bash
+mkdir -p /tmp/dspay-java
 javac -d /tmp/dspay-java src/DspayMockMerchant.java test/DspayMockMerchantTest.java
 java -cp /tmp/dspay-java DspayMockMerchantTest
 ```
