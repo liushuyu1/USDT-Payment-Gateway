@@ -532,10 +532,9 @@ The maintained [Java Demo](../Demo/back-end/java/README.md) builds and signs an 
 |---|---|---|
 | `40001` | Parameter validation failed | Lengths, decimal format, URLs, and payment-method array |
 | `40901` | Merchant order number has already been used | Same `outOrderNo` was retried with changed business fields |
-| `50501` | Merchant not found | `merchantNo` |
 | `50503` | API secret disabled | Key status in Merchant Portal |
 | `50609` | No enabled receiving address | Enable an address for an eligible network |
-| `50613` | Invalid signature | Field order, empty fields, JSON/array canonicalization, and key |
+| `50613` | Invalid signature | `merchantNo`, field order, empty fields, JSON/array canonicalization, and key |
 | `50614` | Expired timestamp | NTP and the five-minute window |
 
 ### 4.9 ⚠️ Pitfalls
