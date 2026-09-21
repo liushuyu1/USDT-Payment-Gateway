@@ -37,7 +37,7 @@
 | <a id="term-dspay"></a>**DSPay** | 多链稳定币收款网关（本服务） |
 | <a id="term-siwe"></a>**SIWE** | Sign-In with Ethereum，基于 EIP-4361 的钱包登录标准；商户用 EVM 钱包对约定消息签名完成登录认证 |
 | <a id="term-apisecret"></a>**apiSecret** | 商户 API 密钥，用于签名创建/查询请求及验证回调，在 [DSPay 后台](https://mcashier.ds.pro/login/)获取，只能保存在商户服务端 |
-| <a id="term-merchantno"></a>**merchantNo** | 商户业务编号（`DSM` 前缀，如 `DSM1`），调用公共创建/查询接口时必传；对外暴露的业务编码，**非 DB 自增主键** |
+| <a id="term-merchantno"></a>**merchantNo** | 商户业务编号（新商户为 `DSM` 前缀，如 `DSM1`；兼容存量 `M` 前缀），调用公共创建/查询接口时必传；对外暴露的业务编码，**非 DB 自增主键** |
 | **orderNo** | DSPay 创建订单后返回的订单唯一标识，用于查询、回调、对账和收银台页面寻址 |
 | **checkoutUrl** | 创建订单接口返回的完整收银台地址，格式为 `{payPageBaseUrl}/checkout/{orderNo}`；商户只负责跳转，不自行拼接业务参数 |
 | <a id="term-networkid"></a>**networkId** | 链的唯一标识（如 `evm--1` = Ethereum 主网），完整列表见 [§3.2](#networkid-速查表) |
@@ -75,7 +75,7 @@
 
 ### Step 1：准备商户配置
 
-在 DSPay 后台获取 `merchantNo` 和 `apiSecret`，并至少配置一个已启用的收款地址。`notifyUrl` 可稍后配置，但生产上线前必须完成。
+在 DSPay 后台获取 `merchantNo` 和 `apiSecret`，并至少配置一个已启用的收款地址。首次启用回调会自动生成 `apiSecret`；若暂不配置 `notifyUrl`，可通过后台密钥管理主动生成密钥。回调可稍后启用，但生产上线前必须完成。
 
 ### Step 2：服务端预创建订单
 
@@ -244,7 +244,7 @@ console.log('checkoutUrl:', result.data.checkoutUrl);
 商户在 [DSPay 后台](https://mcashier.ds.pro/login/)使用 [EVM](#term-evm) 钱包登录（[SIWE](#term-siwe) 签名认证）。**首次登录自动创建商户账号**，无需单独注册。
 
 登录后可获取：
-- **[merchantNo](#term-merchantno)**：商户业务编号（`DSM` 前缀，如 `DSM1`），调用公共创建/查询接口时必传
+- **[merchantNo](#term-merchantno)**：商户业务编号（新商户为 `DSM` 前缀，兼容存量 `M` 前缀），调用公共创建/查询接口时必传
 - **[apiSecret](#term-apisecret)**：API 密钥，用于收银台链接签名和回调验签（后台页面展示，妥善保管）
 
 <a id="会话有效期"></a>
@@ -438,18 +438,18 @@ Content-Type: application/json
 
 | 字段 | 类型 | 必填 | 签名 | 说明 |
 |---|---|---:|---:|---|
-| `merchantNo` | string | 是 | 是 | DSPay 商户编号；不能为空，字符串长度最多 32 个字符 |
+| `merchantNo` | string | 是 | 是 | DSPay 商户编号；`DSM` 或存量 `M` 前缀，后接 1～19 位数字；不接受空白字符 |
 | `outOrderNo` | string | 是 | 是 | 商户订单号；不能为空，仅允许大小写字母、数字和横杠（`A-Z`、`a-z`、`0-9`、`-`），最长 64 个字符；同一商户下唯一，也是幂等键 |
 | `productPrice` | decimal | 否 | 值非null时 | 商品法币价格；整数部分最多 14 位，小数部分最多 6 位 |
-| `productPriceCurrency` | string | 否 | 值非null时 | 商品价格币种；字符串长度最多 16 个字符 |
-| `productId` | string | 否 | 值非null时 | 商户产品 ID；字符串长度最多 64 个字符 |
+| `productPriceCurrency` | string | 否 | 非空白时 | 商品价格币种；字符串长度最多 16 个字符；空串或纯空白视为未传 |
+| `productId` | string | 否 | 非空白时 | 商户产品 ID；字符串长度最多 64 个字符；空串或纯空白视为未传 |
 | `attach` | object | 否 | 值非null时 | 附加 JSON 对象；规范化 JSON 的 UTF-8 编码长度最多 4096 字节，嵌套深度最多 3 层 |
 | `payAmount` | decimal | 是 | 是 | 原始应付代币金额；最小值 `0.01`，整数部分最多 12 位，小数部分最多 2 位 |
 | `allowedPaymentMethods` | array | 否 | 值非null时 | 限制用户可选组合；数组最多 50 项；不传或传空数组表示不额外限制；显式空数组参与签名时值为空字符串 |
-| `returnUrl` | string | 否 | 条件 | 可选；订单进入 `TIMEOUT` 时跳转。必须是以 `http://` 或 `https://` 开头的完整 URL，可包含端口、路径和查询参数；整个 URL 最长 8192 个字符。值不为 `null` 时参与签名；值为 `null` 或未传时不进入签名串 |
-| `successRedirectUrl` | string | 否 | 条件 | 可选；仅订单进入 `COMPLETED` 时跳转。必须是以 `http://` 或 `https://` 开头的完整 URL，可包含端口、路径和查询参数；整个 URL 最长 8192 个字符。值不为 `null` 时参与签名；值为 `null` 或未传时不进入签名串；未配置时停留 DSPay 成功页 |
+| `returnUrl` | string | 否 | 非空时 | 可选；订单进入 `TIMEOUT` 时跳转。必须是以 `http://` 或 `https://` 开头的完整 URL，可包含端口、路径和查询参数；整个 URL 最长 8192 个字符。空串、`null` 或未传时不进入签名串 |
+| `successRedirectUrl` | string | 否 | 非空时 | 可选；仅订单进入 `COMPLETED` 时跳转。必须是以 `http://` 或 `https://` 开头的完整 URL，可包含端口、路径和查询参数；整个 URL 最长 8192 个字符。空串、`null` 或未传时不进入签名串；未配置时停留 DSPay 成功页 |
 | `timestamp` | long | 是 | 是 | Unix 毫秒时间戳；与 DSPay 服务端当前时间的差值绝对值不得超过 300000 毫秒（5 分钟） |
-| `signature` | string | 是 | 否 | HMAC-SHA256 小写十六进制字符串，固定 64 个字符；字段本身不参与签名 |
+| `signature` | string | 是 | 否 | HMAC-SHA256 十六进制字符串，固定 64 个字符；大小写均接受，建议输出小写；字段本身不参与签名 |
 
 `allowedPaymentMethods[]` 每项必须包含非空的 `networkId` 和 `contractAddress`：`networkId` 字符串长度最多 64 个字符，`contractAddress` 字符串长度最多 128 个字符；两者必须组成 `supported-chains` 返回的有效支付方式。最终列表为：
 
@@ -519,8 +519,8 @@ Content-Type: application/json
 签名参数处理规则：
 
 - 排除 `signature`。
-- 值为 `null` 或未传的字段不参与签名。
-- 值不为 `null` 的字段全部参与签名；显式空字符串保留为 `key=`。
+- 值为 `null` 或未传的字段不参与签名。`productId`、`productPriceCurrency` 的空串或纯空白值，以及 `returnUrl`、`successRedirectUrl` 的空串，会按未传处理，也不参与签名。
+- 其余非 `null` 字段参与签名；例如显式空数组 `allowedPaymentMethods: []` 参与签名时为 `allowedPaymentMethods=`。
 - 按参数名 ASCII 升序排列，再用 `&` 连接 `key=value`。
 - 只排序参数名，不排序参数值。
 
@@ -534,10 +534,12 @@ signature = lowercaseHex(HMAC_SHA256(apiSecret, canonicalString UTF-8))
 
 规范化：
 
-- 字符串值 trim；显式传入空字符串时保留空字符串。
+- 非空白字符串按原值参与签名，服务端不做 `trim`。`merchantNo`、`outOrderNo` 必须满足请求字段规则；不要靠服务端修剪首尾空格。上述可选字段的空值例外按规则省略。
 - decimal 使用普通十进制形式。
 - `attach` 对象键递归按字典序排列，去除多余空白；数字去除无意义尾零，`-0` 转为 `0`。
 - `allowedPaymentMethods` 保留商户顺序并去重，每项拼为 `networkId|contractAddress`，再用逗号连接；`0x` 地址转小写。
+
+> 现有 Java、Node.js、PHP Demo 侧会修剪部分字符串，仅覆盖常规演示输入；正式接入请以上述服务端规则为准，不要在签名或回调验签前擅自修剪字段值。
 
 `attach` 不可包含密码、私钥、证件或银行卡等敏感信息。
 
@@ -573,7 +575,7 @@ signature = lowercaseHex(HMAC_SHA256(apiSecret, canonicalString UTF-8))
 <a id="java-端到端-demo"></a>
 ### 4.6 Java 端到端 Demo
 
-Java 可运行 Demo 统一维护在 [`Demo/back-end/java`](../Demo/back-end/java/README.zh-CN.md)。Demo 会在商户服务端构造完整请求、规范化全部签名字段、调用公共创建接口、检查顶层 `code`，再将浏览器跳转到响应中的 `checkoutUrl`；同时演示 Raw Body 回调验签和公共查询兜底。
+Java 可运行 Demo 统一维护在 [`Demo/back-end/java`](../Demo/back-end/java/README.zh-CN.md)。Demo 会在商户服务端构造示例请求、生成签名、调用公共创建接口、检查顶层 `code`，再将浏览器跳转到响应中的 `checkoutUrl`；同时演示回调验签和公共查询兜底。签名边界值以 [§4.4](#签名规范化字符串) 为准。
 
 - [Java Demo 使用说明](../Demo/back-end/java/README.zh-CN.md)
 - [可运行源码 `DspayMockMerchant.java`](../Demo/back-end/java/src/DspayMockMerchant.java)
@@ -603,7 +605,7 @@ Node.js 和 PHP Demo 遵循同一预下单流程：服务端签名、调用 `POS
 
 ### 4.9 ⚠️ 坑点
 
-1. **所有创建业务字段都参与签名**：包括 `productId`、`attach`、支付方式限制和两个跳转 URL；可选字段未传也保留空 key。
+1. **签名字段必须与实际提交值一致**：`productId`、`attach`、支付方式限制和跳转 URL 有值时参与签名；未传或 `null` 的可选字段不补空 key，上述空值例外同样省略。
 2. **金额不要使用浮点数**：Java 使用字符串构造的 `BigDecimal` 和 `toPlainString()`；Node.js/PHP 保留原十进制字符串。
 3. **签名时间窗不是订单有效期**：5 分钟只控制请求防重放；订单从创建开始有独立 10 分钟支付期。
 4. **创建成功不代表已锁定支付方式**：链上检测和补单只处理已锁定支付方式的订单。
@@ -684,7 +686,7 @@ Node.js 和 PHP Demo 遵循同一预下单流程：服务端签名、调用 `POS
 
 ```json
 {
-  "orderNo": "DS202406071234567890",
+  "orderNo": "1949695024925671424",
   "outOrderNo": "MY-ORDER-20260715-001",
   "attach": {"customerId": "CUST-1001", "source": "web"},
   "eventType": "COMPLETED",
@@ -712,9 +714,9 @@ Node.js 和 PHP Demo 遵循同一预下单流程：服务端签名、调用 `POS
 
 | 字段 | 类型 | 必返 | 允许 null | 说明 |
 |------|------|------|-----------|------|
-| `orderNo` | string | 是 | 否 | 订单号，如 `DS2024...` |
+| `orderNo` | string | 是 | 否 | 订单号；新订单为 15～19 位数字，存量订单可能带 `DS` 前缀 |
 | `outOrderNo` | string | 是 | 否 | 商户外部订单号（创建订单时必传，原样回传） |
-| `attach` | object | 条件 | 否 | 创建订单时传入则原样回传；未传时省略该字段，不返回 `null` |
+| `attach` | object | 条件 | 否 | 创建订单时传入则按规范化 JSON 保存并作为对象返回；未传时省略该字段，不返回 `null` |
 | `eventType` | string | 是 | 否 | 事件类型：`CLOSED` / `COMPLETED` / `REFUNDED` |
 | `status` | string | 是 | 否 | 订单当前状态枚举 |
 | `payAmount` | string | 是 | 是 | 最终应付金额（含尾数，Decimal 字符串）；未确认支付方式就关闭时为 `null` |
@@ -993,13 +995,13 @@ Content-Type: application/json
 
 | 字段 | 必填 | 签名 | 说明 |
 |---|---:|---:|---|
-| `merchantNo` | 是 | 是 | 商户编号；不能为空；最多 32 个字符 |
-| `orderNo` | 条件 | 值非null时 | 与 `outOrderNo` 至少一个非空；最多 64 个字符 |
+| `merchantNo` | 是 | 是 | 商户编号；`DSM` 或存量 `M` 前缀，后接 1～19 位数字 |
+| `orderNo` | 条件 | 值非null时 | 与 `outOrderNo` 至少一个非空；15～19 位数字（首位非零），兼容存量 `DS` + 同格式数字 |
 | `outOrderNo` | 条件 | 值非null时 | 与 `orderNo` 至少一个非空；仅允许大小写字母、数字和横杠（`A-Z`、`a-z`、`0-9`、`-`），最长 64 个字符 |
 | `timestamp` | 是 | 是 | Unix 毫秒时间戳；与服务端时间差绝对值不得超过 300000 毫秒 |
-| `signature` | 是 | 否 | HMAC-SHA256 小写十六进制字符串，固定 64 个字符 |
+| `signature` | 是 | 否 | HMAC-SHA256 十六进制字符串，固定 64 个字符；大小写均接受，建议输出小写 |
 
-两个订单号都未传、为 `null` 或空白字符串时，返回 `40002 ORDER_QUERY_IDENTIFIER_REQUIRED`（订单号和商户订单号不能同时为空）。同时传两个订单号时按 AND 匹配。排除 `signature` 和未传、`null`字段后，其余字段按参数名ASCII升序拼接；显式空字符串保留为`key=`。
+两个订单号都未传、为 `null` 或空字符串时，返回 `40002 ORDER_QUERY_IDENTIFIER_REQUIRED`（订单号和商户订单号不能同时为空）；只含空格等空白字符不符合字段格式，会先触发参数校验失败。同时传两个订单号时按 AND 匹配。排除 `signature` 和未传、`null` 字段后，其余字段按参数名 ASCII 升序拼接；显式空字符串保留为 `key=`，非空白字符串不做 `trim`。
 
 ```text
 merchantNo=DSM2080260022215368706&orderNo=1949695024925671424&timestamp=1787292500000
@@ -1025,7 +1027,7 @@ merchantNo=DSM2080260022215368706&orderNo=1949695024925671424&timestamp=17872925
 | `productPrice` | 否 | 创建时传入的商品法币价格 |
 | `productPriceCurrency` | 否 | 商品价格币种 |
 | `productId` | 否 | 商户产品 ID |
-| `attach` | 否 | 创建时传入的附加 JSON，原样回传 |
+| `attach` | 否 | 创建时传入的附加 JSON，经规范化保存后作为对象返回 |
 | `actualReceivedAmount` | 否 | 实际到账代币金额 |
 | `paidSource` | 否 | `CHAIN_DETECTION` 或 `SUPPLEMENT` |
 | `paidAt` | 否 | 检测到付款时间，Unix 毫秒 |
@@ -1295,7 +1297,7 @@ A: `productPrice` 和 `payAmount` 用字符串字面量 `'99.99'` 或 Big.js，�
 A: **不需要**。[apiSecret](#term-apisecret) 字符串直接作为 HMAC key 使用。Base64Url 只是密钥的存储编码，[HMAC-SHA256](#term-hmac-sha256) 对 key 字节序列没有格式要求。`secret.getBytes(UTF_8)` 直接传给 `SecretKeySpec`。
 
 **Q: 签名字段顺序错了会怎样？**
-A: 签名不一致 → [`50613`](#error-50613)。先排除 `signature` 和值为 `null`/未传的字段，再将其余字段按参数名 ASCII 升序拼接。显式空字符串保留为 `key=`；参数值本身不排序。
+A: 签名不一致 → [`50613`](#error-50613)。先排除 `signature` 和值为 `null`/未传的字段，再将其余字段按参数名 ASCII 升序拼接。创建订单中部分可选空值会按未传处理，见 [§4.4](#签名规范化字符串)；参与签名的显式空值保留为 `key=`，参数值本身不排序。
 
 ### 9.3 订单类
 
@@ -1423,6 +1425,7 @@ Node.js 接入只维护一份权威实现：[`Demo/back-end/nodejs`](../Demo/bac
 | <a id="error-50612"></a>50612 | SUFFIX_PRECISION_SATURATED | 原始金额超过 2 位小数，无法在固定 6 位精度内保留 4 位尾数空间 |
 | <a id="error-50613"></a>50613 | ORDER_SIGNATURE_INVALID | 创建订单或主动查询的签名校验失败 |
 | <a id="error-50614"></a>50614 | ORDER_TIMESTAMP_EXPIRED | 创建订单的时间戳超出 ±5 分钟窗口 |
+| <a id="error-50616"></a>50616 | CASHIER_LINK_VIEW_EXPIRED | 收银台链接超过查看期限（默认创建后 180 天） |
 | <a id="error-50617"></a>50617 | ORDER_QUERY_TIMESTAMP_EXPIRED | 主动查询的时间戳超出 ±5 分钟窗口 |
 
 #### 地址相关（507xx）

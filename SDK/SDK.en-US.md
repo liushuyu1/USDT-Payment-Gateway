@@ -37,7 +37,7 @@
 | <a id="term-dspay"></a>**DSPay** | A multi-chain stablecoin payment gateway (this service). |
 | <a id="term-siwe"></a>**SIWE** | Sign-In with Ethereum — the EIP-4361 wallet-login standard. Merchants authenticate by signing a well-formed message with an [EVM](#term-evm) wallet. |
 | <a id="term-apisecret"></a>**apiSecret** | Merchant API secret used to sign create/query requests and verify incoming webhooks. Obtain it from the Merchant Portal and keep it on the merchant server only. |
-| <a id="term-merchantno"></a>**merchantNo** | Merchant business identifier (`DSM` prefix, e.g. `DSM1`), required by public create/query APIs. |
+| <a id="term-merchantno"></a>**merchantNo** | Merchant business identifier (`DSM` prefix for new merchants, e.g. `DSM1`; legacy `M` prefix also accepted), required by public create/query APIs. |
 | **orderNo** | Unique DSPay order identifier returned after creation; used for Checkout addressing, queries, webhooks and reconciliation. |
 | **checkoutUrl** | Complete Checkout address returned by create: `{payPageBaseUrl}/checkout/{orderNo}`. Redirect to it as returned. |
 | <a id="term-networkid"></a>**networkId** | Canonical chain identifier (e.g. `evm--1` = Ethereum mainnet). Full list in [§3.2](#networkid-cheat-sheet). |
@@ -67,13 +67,13 @@
 | Requirement | Where to get it |
 |---|---|
 | DSPay merchant account | Sign in to the [DSPay Merchant Portal](https://mcashier.ds.pro/login/) |
-| `merchantNo` and `apiSecret` | Merchant Portal security settings |
+| `merchantNo` and `apiSecret` | Merchant Portal security settings; enabling webhooks generates a missing secret, or you can generate one through key management before configuring webhooks |
 | At least one enabled receiving address | Merchant Portal receiving-address settings |
 | `notifyUrl` | Optional for the first request; required before production |
 
 ### Step 1 — Build and sign the request on your server
 
-The following example uses the unified Node.js `18.20.8` baseline and only required fields. Optional signed fields remain in the canonical string as empty `key=` entries.
+The following example uses the unified Node.js `18.20.8` baseline and only required fields. Absent or `null` optional fields are omitted from the canonical string.
 
 > Before running it, replace `baseUrl`, `merchantNo`, and `apiSecret` below with real values. Obtain `merchantNo` and `apiSecret` from the DSPay Merchant Portal; the placeholders cannot be used in an actual request.
 
@@ -224,7 +224,7 @@ This chapter describes the merchant sign-up and authentication model, including 
 Merchants sign in to the [DSPay Merchant Portal](https://mcashier.ds.pro/login/) with an [EVM](#term-evm) wallet via [SIWE](#term-siwe) (signature-based authentication). **The first sign-in automatically provisions a merchant account** — no separate registration step is required.
 
 After signing in, you can obtain:
-- **[merchantNo](#term-merchantno)**: your merchant business identifier (`DSM` prefix, e.g. `DSM1`). Required by public create/query requests.
+- **[merchantNo](#term-merchantno)**: your merchant business identifier (`DSM` prefix for new merchants; legacy `M` prefix also accepted). Required by public create/query requests.
 - **[apiSecret](#term-apisecret)**: your API secret, used to sign public create/query requests and verify incoming webhooks. Store it securely on the merchant server.
 
 <a id="session-lifetime"></a>
@@ -263,7 +263,7 @@ No parameters or signature.
   "code": 0,
   "data": [{
     "networkId": "evm--56",
-    "chainName": "BNB Smart Chain",
+    "chainName": "BNB Chain",
     "chainLogoUrl": "https://static.ds.pro/chains/bsc.png",
     "tokens": [{
       "symbol": "USDT",
@@ -411,18 +411,18 @@ Content-Type: application/json
 
 | Field | Type | Required | Signed | Description |
 |---|---|---:|---:|---|
-| `merchantNo` | string | Yes | Yes | DSPay merchant ID; non-empty, maximum string length 32 characters |
+| `merchantNo` | string | Yes | Yes | DSPay merchant ID: `DSM` or legacy `M` followed by 1–19 digits; whitespace is not accepted |
 | `outOrderNo` | string | Yes | Yes | Merchant order ID; non-empty; letters, digits, and hyphens only (`A-Z`, `a-z`, `0-9`, `-`); maximum 64 characters; unique per merchant and used as the idempotency key |
 | `productPrice` | decimal | No | When non-null | Fiat display price; at most 14 integer digits and 6 fractional digits |
-| `productPriceCurrency` | string | No | When non-null | Fiat currency; maximum string length 16 characters |
-| `productId` | string | No | When non-null | Merchant product ID; maximum string length 64 characters |
+| `productPriceCurrency` | string | No | When non-blank | Fiat currency; maximum string length 16 characters; empty or whitespace-only values are treated as absent |
+| `productId` | string | No | When non-blank | Merchant product ID; maximum string length 64 characters; empty or whitespace-only values are treated as absent |
 | `attach` | object | No | When non-null | Merchant JSON metadata; canonical JSON UTF-8 encoding is limited to 4096 bytes, with a maximum nesting depth of 3 |
 | `payAmount` | decimal | Yes | Yes | Original token amount; minimum `0.01`, at most 12 integer digits and 2 fractional digits |
 | `allowedPaymentMethods` | array | No | When non-null | Maximum 50 `{networkId,contractAddress}` entries; absent or empty means no extra restriction; an explicitly supplied empty array is signed with an empty value |
-| `returnUrl` | string | No | When non-null | Optional; redirects when the order reaches `TIMEOUT`. Must be a complete URL beginning with `http://` or `https://`; ports, paths, and query parameters are allowed. The entire URL is limited to 8192 characters. A null or absent value is omitted from the canonical string |
-| `successRedirectUrl` | string | No | When non-null | Optional; redirects only when the order reaches `COMPLETED`. Must be a complete URL beginning with `http://` or `https://`; ports, paths, and query parameters are allowed. The entire URL is limited to 8192 characters. A null or absent value is omitted from the canonical string; Checkout stays on the DSPay success page when it is not configured |
+| `returnUrl` | string | No | When non-empty | Optional; redirects when the order reaches `TIMEOUT`. Must be a complete URL beginning with `http://` or `https://`; ports, paths, and query parameters are allowed. The entire URL is limited to 8192 characters. Empty, null, or absent values are omitted from the canonical string |
+| `successRedirectUrl` | string | No | When non-empty | Optional; redirects only when the order reaches `COMPLETED`. Must be a complete URL beginning with `http://` or `https://`; ports, paths, and query parameters are allowed. The entire URL is limited to 8192 characters. Empty, null, or absent values are omitted from the canonical string; Checkout stays on the DSPay success page when it is not configured |
 | `timestamp` | long | Yes | Yes | Unix timestamp in milliseconds; absolute difference from DSPay server time must not exceed 300000 milliseconds (5 minutes) |
-| `signature` | string | Yes | No | Lowercase HMAC-SHA256 hexadecimal string, exactly 64 characters; the field itself is not signed |
+| `signature` | string | Yes | No | HMAC-SHA256 hexadecimal string, exactly 64 characters; either case is accepted, lowercase output is recommended; the field itself is not signed |
 
 Each `allowedPaymentMethods[]` entry requires a non-empty `networkId` and `contractAddress`. `networkId` has a maximum string length of 64 characters, while `contractAddress` has a maximum string length of 128 characters. Together they must identify a payment method returned by `supported-chains`. When restrictions are supplied, available methods are:
 
@@ -469,13 +469,14 @@ Response:
 
 Create does not return network, token, final amount, receiving address or QR payload. They do not exist until Pay Now; Checkout generates the QR code client-side.
 
+<a id="signing-and-idempotency"></a>
 ### 4.4 Signing and Idempotency
 
 Create-signature canonicalization:
 
 - Exclude `signature`.
-- Omit fields whose value is `null` or absent.
-- Include every other field; an explicitly supplied empty string remains `key=`.
+- Omit fields whose value is `null` or absent. Empty or whitespace-only `productId` and `productPriceCurrency`, and empty-string `returnUrl` and `successRedirectUrl`, are also treated as absent and omitted.
+- Include other non-null fields; for example, an explicitly supplied empty `allowedPaymentMethods` array is signed as `allowedPaymentMethods=`.
 - Sort by parameter name in ascending ASCII order, then join `key=value` pairs with `&`.
 - Sort parameter names only, never values.
 
@@ -483,9 +484,11 @@ Create-signature canonicalization:
 signature = lowercaseHex(HMAC_SHA256(apiSecret, canonical UTF-8 string))
 ```
 
-- Trim strings; format decimals without scientific notation.
+- Sign non-blank strings as supplied: DSPay does not `trim` them. `merchantNo` and `outOrderNo` must meet their input rules; do not rely on server-side whitespace repair. Omit the optional empty-value exceptions above. Format decimals without scientific notation.
 - Canonicalize `attach` recursively by sorted object keys and compact JSON; normalize numeric zero to `0` and remove insignificant trailing zeros.
 - Preserve `allowedPaymentMethods` order, remove duplicates, join each entry as `networkId|contractAddress`, comma-separated; lowercase `0x` addresses.
+
+> The current Java, Node.js, and PHP demos trim some strings and cover ordinary demo inputs only. For production signing and webhook verification, follow the server rules above; do not silently trim signed field values.
 
 `merchantNo + outOrderNo` is the idempotency key. Generate a new `outOrderNo` for every new order; never reuse one across distinct orders in the same browser session. An identical network retry of the same logical create request may reuse its original `outOrderNo` and returns the original `orderNo/checkoutUrl/expireAt`. Reusing that number with different business fields returns code `40901` with “Merchant order number has already been used”.
 
@@ -510,7 +513,7 @@ Redirects are navigation only, never proof of payment. Query DSPay server-to-ser
 <a id="java-end-to-end-demo"></a>
 ### 4.6 Java End-to-End Demo
 
-The maintained [Java Demo](../Demo/back-end/java/README.md) builds and canonicalizes the complete request on the merchant server, calls the public create endpoint, checks the top-level `code`, redirects to `checkoutUrl`, verifies ASCII-canonical webhooks and performs signed public queries.
+The maintained [Java Demo](../Demo/back-end/java/README.md) builds and signs an example request on the merchant server, calls the public create endpoint, checks the top-level `code`, redirects to `checkoutUrl`, demonstrates webhook verification and performs signed public queries. For signing edge cases, follow [§4.4](#signing-and-idempotency).
 
 - [`DspayMockMerchant.java`](../Demo/back-end/java/src/DspayMockMerchant.java)
 - [`start.sh`](../Demo/back-end/java/start.sh) / [`stop.sh`](../Demo/back-end/java/stop.sh)
@@ -622,7 +625,7 @@ When an order transitions to **`CLOSED` / `COMPLETED` / `REFUNDED`**, [DSPay](#t
 
 ```json
 {
-  "orderNo": "DS202406071234567890",
+  "orderNo": "1949695024925671424",
   "outOrderNo": "MY-ORDER-20260715-001",
   "attach": {"customerId": "CUST-1001", "source": "web"},
   "eventType": "COMPLETED",
@@ -650,9 +653,9 @@ When an order transitions to **`CLOSED` / `COMPLETED` / `REFUNDED`**, [DSPay](#t
 
 | Field | Type | Always returned | Nullable | Description |
 |------|------|-----------------|----------|------|
-| `orderNo` | string | Yes | No | Order ID, e.g. `DS2024...`. |
+| `orderNo` | string | Yes | No | Order ID: 15–19 digits for new orders; legacy orders may have a `DS` prefix. |
 | `outOrderNo` | string | Yes | No | Merchant external order ID (required at order creation and echoed back). |
-| `attach` | object | Conditional | No | Echoed unchanged when supplied at creation; otherwise omitted rather than returned as `null`. |
+| `attach` | object | Conditional | No | Stored as canonical JSON and returned as an object when supplied at creation; otherwise omitted rather than returned as `null`. |
 | `eventType` | string | Yes | No | Event type: `CLOSED` / `COMPLETED` / `REFUNDED`. |
 | `status` | string | Yes | No | Current order status enum. |
 | `payAmount` | string | Yes | Yes | Final amount due, including the suffix (Decimal string); `null` if the order closes before payment confirmation. |
@@ -931,13 +934,13 @@ POST /dspay/public/order/query
 
 | Field | Required | Signed | Constraints and meaning |
 |---|---:|---:|---|
-| `merchantNo` | Yes | Yes | Non-empty merchant ID; maximum 32 characters |
-| `orderNo` | Conditional | When non-null | At least one of `orderNo/outOrderNo` must be non-empty; maximum 64 characters |
+| `merchantNo` | Yes | Yes | `DSM` or legacy `M` followed by 1–19 digits |
+| `orderNo` | Conditional | When non-null | At least one of `orderNo/outOrderNo` must be non-empty; 15–19 digits with a nonzero first digit, optionally prefixed by legacy `DS` |
 | `outOrderNo` | Conditional | When non-null | At least one of `orderNo/outOrderNo` must be non-empty; letters, digits, and hyphens only (`A-Z`, `a-z`, `0-9`, `-`); maximum 64 characters |
 | `timestamp` | Yes | Yes | Unix milliseconds; absolute server-time difference must not exceed 300000 ms |
-| `signature` | Yes | No | Lowercase HMAC-SHA256 hexadecimal string, exactly 64 characters |
+| `signature` | Yes | No | HMAC-SHA256 hexadecimal string, exactly 64 characters; either case is accepted, lowercase output is recommended |
 
-If both identifiers are absent, `null`, or blank, the API returns `40002 ORDER_QUERY_IDENTIFIER_REQUIRED` (order number and merchant order number cannot both be empty). When both identifiers are present, the query uses an AND match. Exclude `signature` and null/absent fields, then sort all remaining parameter names in ascending ASCII order. Preserve an explicitly supplied empty string as `key=`.
+If both identifiers are absent, `null`, or empty strings, the API returns `40002 ORDER_QUERY_IDENTIFIER_REQUIRED` (order number and merchant order number cannot both be empty). Whitespace-only strings fail field-format validation first. When both identifiers are present, the query uses an AND match. Exclude `signature` and null/absent fields, then sort all remaining parameter names in ascending ASCII order. Preserve an explicitly supplied empty string as `key=`; do not `trim` non-blank strings.
 
 Example when querying by `orderNo`:
 
@@ -966,7 +969,7 @@ Public APIs use the common envelope. Top-level `code = 0` means success; `data` 
 | `productPrice` | No | Fiat product price supplied at creation |
 | `productPriceCurrency` | No | Product-price currency |
 | `productId` | No | Merchant product ID |
-| `attach` | No | Original attached JSON |
+| `attach` | No | Attached JSON saved in canonical form and returned as an object |
 | `actualReceivedAmount` | No | Actual token amount received |
 | `paidSource` | No | `CHAIN_DETECTION` or `SUPPLEMENT` |
 | `paidAt` | No | Detection time, Unix milliseconds |
@@ -1230,7 +1233,7 @@ A: `productPrice` and `payAmount` must be string literals like `'99.99'` or use 
 A: **No.** The [apiSecret](#term-apisecret) string is used directly as the HMAC key. Base64Url is only the storage encoding — [HMAC-SHA256](#term-hmac-sha256) is encoding-agnostic about the key byte sequence. Pass `secret.getBytes(UTF_8)` directly to `SecretKeySpec`.
 
 **Q: What happens if the signature field order is wrong?**
-A: The signature will not match → [`50613`](#error-50613). Exclude `signature` and null/absent fields, then sort all remaining fields by parameter name in ascending ASCII order. Preserve explicitly supplied empty strings as `key=`; never sort values.
+A: The signature will not match → [`50613`](#error-50613). Exclude `signature` and null/absent fields, then sort all remaining fields by parameter name in ascending ASCII order. Some empty optional create fields are treated as absent; see [§4.4](#signing-and-idempotency). Preserve signed empty values as `key=`; never sort values.
 
 ### 9.3 Orders
 
@@ -1358,6 +1361,7 @@ Lists errors relevant to public order creation, active query, and the payer-faci
 | <a id="error-50612"></a>50612 | SUFFIX_PRECISION_SATURATED | The original amount exceeds 2 decimal places, leaving insufficient room for the 4-digit suffix within the fixed six-decimal scale. |
 | <a id="error-50613"></a>50613 | ORDER_SIGNATURE_INVALID | Signature verification failed for order creation or active query. |
 | <a id="error-50614"></a>50614 | ORDER_TIMESTAMP_EXPIRED | Order-creation timestamp outside the ±5-minute window. |
+| <a id="error-50616"></a>50616 | CASHIER_LINK_VIEW_EXPIRED | Checkout link is beyond its viewing period (180 days after creation by default). |
 | <a id="error-50617"></a>50617 | ORDER_QUERY_TIMESTAMP_EXPIRED | Active-query timestamp outside the ±5-minute window. |
 
 #### Address (507xx)
