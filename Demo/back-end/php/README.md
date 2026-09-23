@@ -8,7 +8,7 @@ Runtime baseline: PHP 5.6 minimum; all syntax checks, create-signature tests, an
 
 > `REPLACE_WITH_REAL_MERCHANT_NO` and `REPLACE_WITH_REAL_API_SECRET` below are placeholders and must be replaced. `DSPAY_BASE_URL` is prefilled with the DSPay production API; change it only when testing another environment.
 
-Run `./start.sh` and enter any missing `DSPAY_BASE_URL`, `PUBLIC_BASE_URL`, `MERCHANT_NO`, and `API_SECRET` values when prompted; secret input is hidden. `PORT` is optional and defaults to `3000`, and `FRONT_END_DIR` optionally overrides the served front-end directory (default `../../front-end`). Entered values are not saved. The server runs in the background (PID in `server.pid`); stop it with `./stop.sh`.
+Run `./start.sh` and enter any missing `DSPAY_BASE_URL`, `PUBLIC_BASE_URL`, `MERCHANT_NO`, and `API_SECRET` values when prompted; secret input is hidden. The listening port uses an explicitly set `PORT`, otherwise the port in `PUBLIC_BASE_URL`, or `80` when no port is specified. The demo does not support HTTPS; `PUBLIC_BASE_URL` must use `http://`. `FRONT_END_DIR` optionally overrides the served front-end directory (default `../../front-end`). Entered values are not saved. The server runs in the background (PID in `server.pid`); stop it with `./stop.sh`.
 
 ```bash
 cd Demo/back-end/php

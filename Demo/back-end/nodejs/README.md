@@ -15,7 +15,7 @@ npm --version   # 10.8.2
 
 > `REPLACE_WITH_REAL_MERCHANT_NO`, `REPLACE_WITH_REAL_API_SECRET`, and `REPLACE_WITH_REAL_DSPAY_API_HOST` below are placeholders. Replace them with real values from the DSPay Merchant Portal before running.
 
-Run `./start.sh` for a background service. It prompts for missing `DSPAY_BASE_URL`, `PUBLIC_BASE_URL`, `MERCHANT_NO`, and `API_SECRET`; secret input is hidden. `PORT` is optional and defaults to `3000`; `FRONT_END_DIR` optionally overrides the served front-end directory (default `../../front-end`). Entered values are not saved, so provide them again on the next start or set environment variables first.
+Run `./start.sh` for a background service. It prompts for missing `DSPAY_BASE_URL`, `PUBLIC_BASE_URL`, `MERCHANT_NO`, and `API_SECRET`; secret input is hidden. The listening port uses an explicitly set `PORT`, otherwise the port in `PUBLIC_BASE_URL`, or `80` when no port is specified. The demo does not support HTTPS; `PUBLIC_BASE_URL` must use `http://`. `FRONT_END_DIR` optionally overrides the served front-end directory (default `../../front-end`). Entered values are not saved, so provide them again on the next start or set environment variables first.
 
 ```bash
 cd Demo/back-end/nodejs

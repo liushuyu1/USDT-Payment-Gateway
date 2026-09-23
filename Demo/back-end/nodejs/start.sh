@@ -50,20 +50,46 @@ prompt_secret() {
     done
 }
 
+resolve_port() {
+    local authority url_port
+    case "$PUBLIC_BASE_URL" in
+        http://*) authority="${PUBLIC_BASE_URL#http://}" ;;
+        https://*) echo "HTTPS is not supported by this demo. Set PUBLIC_BASE_URL to an http:// URL." >&2; exit 1 ;;
+        *) echo "Invalid PUBLIC_BASE_URL: expected an http:// URL." >&2; exit 1 ;;
+    esac
+    authority="${authority%%/*}"
+    authority="${authority%%\?*}"
+    authority="${authority%%\#*}"
+    if [[ "$authority" =~ ^(\[[^]]+\]|[[:alnum:].-]+):([[:digit:]]+)$ ]]; then
+        url_port="${BASH_REMATCH[2]}"
+    elif [[ "$authority" =~ ^(\[[^]]+\]|[[:alnum:].-]+)$ ]]; then
+        url_port=80
+    else
+        echo "Invalid PUBLIC_BASE_URL: expected a host and optional numeric port." >&2
+        exit 1
+    fi
+    if [ -n "${PORT:-}" ]; then
+        echo "Listening port (PORT): $PORT (from environment)"
+    else
+        PORT="$url_port"
+        echo "Listening port (PORT): $PORT (from PUBLIC_BASE_URL)"
+    fi
+}
+
 echo "Required configuration (preset environment variables are reused):"
 echo "  DSPAY_BASE_URL   DSPay API base URL"
 echo "  PUBLIC_BASE_URL  public URL of this demo"
 echo "  MERCHANT_NO      merchant number"
 echo "  API_SECRET       API secret (hidden input)"
-echo "  PORT             optional; default 3000"
+echo "  PORT             optional listening port override; otherwise from PUBLIC_BASE_URL"
 echo "  FRONT_END_DIR    optional; default ../../front-end (relative to this script)"
 prompt_required DSPAY_BASE_URL "DSPay API base URL"
 prompt_required PUBLIC_BASE_URL "Public demo URL"
 prompt_required MERCHANT_NO "Merchant number"
 prompt_secret
+resolve_port
 
-PORT="${PORT:-3000}"
-if ! [[ "$PORT" =~ ^[1-9][0-9]*$ ]] || (( PORT > 65535 )); then
+if ! [[ "$PORT" =~ ^[1-9][0-9]*$ ]] || [ "${#PORT}" -gt 5 ] || (( PORT > 65535 )); then
     echo "Invalid PORT: expected an integer from 1 to 65535." >&2
     exit 1
 fi
@@ -98,6 +124,9 @@ for ((attempt = 0; attempt < 30; attempt++)); do
 done
 
 echo "Server failed to start. Recent logs:" >&2
+if tail -n +"$((LOG_START_LINE + 1))" "$LOG_FILE" | grep -Eq 'EADDRINUSE|Address already in use|BindException'; then
+    echo "Port $PORT is already in use. Change PUBLIC_BASE_URL to a free port, or set PORT explicitly." >&2
+fi
 tail -n +"$((LOG_START_LINE + 1))" "$LOG_FILE" >&2
 if kill -0 "$PID" 2>/dev/null; then
     kill "$PID" 2>/dev/null || true

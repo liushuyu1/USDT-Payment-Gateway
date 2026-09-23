@@ -85,7 +85,7 @@ cd Demo/back-end/php
 ./start.sh
 ```
 
-三套 `start.sh` 的交互流程一致：依次读取 DSPay API 地址、Demo 公网地址、商户号和 API Secret（密钥不回显），端口默认 `3000`；执行同目录的 `./stop.sh` 停止。
+三套 `start.sh` 的交互流程一致：依次读取 DSPay API 地址、Demo 公网地址、商户号和 API Secret（密钥不回显）；执行同目录的 `./stop.sh` 停止。监听端口优先使用显式设置的 `PORT`；未设置时从 `PUBLIC_BASE_URL` 推断：URL 明写端口就使用该端口，否则 `http` 使用 `80`。例如 `http://liushuyu.com:8080/` 会监听 `8080`。**Demo 不支持 HTTPS**，`PUBLIC_BASE_URL` 必须使用 `http://`。
 
 ## 本地接口
 
@@ -102,8 +102,8 @@ cd Demo/back-end/php
 三种语言 Demo 的通知 URL 和启动方式完全一致。执行对应目录的 `./start.sh`，脚本会交互询问缺少的配置并打印两个通知地址。本地联调需通过 ngrok、cpolar 等工具提供公网域名，然后在商户后台按测试场景配置其中一个地址：
 
 ```text
-成功场景：https://你的公网域名/notify/success
-失败场景：https://你的公网域名/notify/fail
+成功场景：http://你的公网域名/notify/success
+失败场景：http://你的公网域名/notify/fail
 ```
 
 FAIL 场景使用 HTTP 200 + 顶层 `code=FAIL`，用于验证 DSPay 对商户主动失败的 error 日志及重试流程；它不是网络异常模拟。

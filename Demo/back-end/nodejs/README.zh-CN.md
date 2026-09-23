@@ -15,7 +15,7 @@ npm --version   # 10.8.2
 
 > 启动命令中的 `REPLACE_WITH_REAL_MERCHANT_NO`、`REPLACE_WITH_REAL_API_SECRET` 和 `REPLACE_WITH_REAL_DSPAY_API_HOST` 是占位值，必须替换为真实参数。`merchantNo` 和 `apiSecret` 从DSPay商户后台获取。
 
-后台运行可直接执行 `./start.sh`。脚本会询问缺少的 `DSPAY_BASE_URL`、`PUBLIC_BASE_URL`、`MERCHANT_NO` 和 `API_SECRET`，密钥输入不回显。`PORT` 可选，默认 `3000`；`FRONT_END_DIR` 可选，可指定其他前端目录（默认 `../../front-end`）。输入值不会保存；下次启动需重新输入或提前设置环境变量。
+后台运行可直接执行 `./start.sh`。脚本会询问缺少的 `DSPAY_BASE_URL`、`PUBLIC_BASE_URL`、`MERCHANT_NO` 和 `API_SECRET`，密钥输入不回显。监听端口优先使用环境变量 `PORT`，否则使用 `PUBLIC_BASE_URL` 中的端口；URL 不写端口时默认 `80`。Demo 不支持 HTTPS，`PUBLIC_BASE_URL` 必须使用 `http://`。`FRONT_END_DIR` 可选，可指定其他前端目录（默认 `../../front-end`）。输入值不会保存；下次启动需重新输入或提前设置环境变量。
 
 ```bash
 cd Demo/back-end/nodejs

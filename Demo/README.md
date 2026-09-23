@@ -43,7 +43,7 @@ cd Demo/back-end/nodejs
 ./start.sh
 ```
 
-Every backend version also serves the store page itself: after `./start.sh`, open `http://localhost:3000` (or your `PUBLIC_BASE_URL`) and click Pay Now — page and API share the same origin, no extra static hosting needed. Opening `Demo/front-end/index.html` directly from disk also works locally (it falls back to `http://localhost:3000`). Expose port 3000 through ngrok or similar when testing webhooks, then configure the public `/notify/success` or `/notify/fail` URL in the merchant portal. `FRONT_END_DIR` optionally points the backend at a different front-end directory (default: `../../front-end`).
+Every backend version also serves the store page itself: after `./start.sh`, open the configured `PUBLIC_BASE_URL` and click Pay Now — page and API share the same origin, no extra static hosting needed. An explicitly set `PORT` takes precedence; otherwise the script uses the port in `PUBLIC_BASE_URL`, or `80` when the URL omits a port. Opening `Demo/front-end/index.html` directly from disk also works locally (it falls back to `http://localhost:3000`). Expose the selected port for webhook testing, then configure the public `/notify/success` or `/notify/fail` URL in the merchant portal. **The demo does not support HTTPS**; `PUBLIC_BASE_URL` must use `http://`. `FRONT_END_DIR` optionally points the backend at a different front-end directory (default: `../../front-end`).
 
 The front end displays an editable Order ID (`outOrderNo`). The refresh button generates a new ID each time; Pay Now submits the displayed ID. Use a new ID for each new order. Reuse the original ID and identical business fields only when retrying the same order. The backend uses the supplied value, or generates one when none is supplied.
 
@@ -80,8 +80,8 @@ All three `start.sh` scripts use the same interactive flow: DSPay API URL, publi
 All three language demos expose the same notification URLs and retain their existing `./start.sh` workflow. Expose the selected backend through ngrok or a similar tunnel, then configure one of these merchant-portal URLs:
 
 ```text
-Success scenario: https://your-public-host/notify/success
-Failure scenario: https://your-public-host/notify/fail
+Success scenario: http://your-public-host/notify/success
+Failure scenario: http://your-public-host/notify/fail
 ```
 
 The failure scenario deliberately returns HTTP 200 with top-level `code=FAIL`, allowing you to test DSPay's merchant-failure error log and retry path rather than a network failure.

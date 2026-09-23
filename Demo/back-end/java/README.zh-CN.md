@@ -15,7 +15,7 @@ java -DmerchantNo="REPLACE_WITH_REAL_MERCHANT_NO" -DapiSecret="REPLACE_WITH_REAL
   -DpublicBase="http://localhost:3000" -cp build DspayMockMerchant
 ```
 
-后台运行可执行 `./start.sh`。脚本会交互询问 `DSPAY_BASE_URL`、`PUBLIC_BASE_URL`、`MERCHANT_NO` 和 `API_SECRET`，密钥输入不回显。提前设置对应环境变量可跳过询问。`PORT` 可选，默认 `3000`；`FRONT_END_DIR` 可选，可指定其他前端目录（默认 `../../front-end`）。输入值不会保存；下次启动需重新输入或通过环境变量提供。非交互运行必须提供上述四项环境变量。
+后台运行可执行 `./start.sh`。脚本会交互询问 `DSPAY_BASE_URL`、`PUBLIC_BASE_URL`、`MERCHANT_NO` 和 `API_SECRET`，密钥输入不回显。提前设置对应环境变量可跳过询问。监听端口优先使用环境变量 `PORT`，否则使用 `PUBLIC_BASE_URL` 中的端口；URL 不写端口时默认 `80`。Demo 不支持 HTTPS，`PUBLIC_BASE_URL` 必须使用 `http://`。`FRONT_END_DIR` 可选，可指定其他前端目录（默认 `../../front-end`）。输入值不会保存；下次启动需重新输入或通过环境变量提供。非交互运行必须提供上述四项环境变量。
 
 - `GET /create`：签名预下单并 302 到响应中的 `checkoutUrl`
 - `GET /query?orderNo=...` 或 `?outOrderNo=...`：签名主动查询
