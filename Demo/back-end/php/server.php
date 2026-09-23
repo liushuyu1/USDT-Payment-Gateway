@@ -17,6 +17,14 @@ function jsonResponse($status, $body)
     echo json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 }
 
+function notifyResponse($path, $status, $body)
+{
+    error_log('[DSPay PHP Demo] notify response: path=' . $path
+        . ' status=' . $status
+        . ' body=' . json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    jsonResponse($status, $body);
+}
+
 function orderData($merchantNo, $publicBase)
 {
     $outOrderNo = isset($_GET['outOrderNo']) && trim($_GET['outOrderNo']) !== ''
@@ -58,15 +66,15 @@ try {
         $rawBody = file_get_contents('php://input');
         $signature = isset($_SERVER['HTTP_X_DSPAY_SIGNATURE']) ? $_SERVER['HTTP_X_DSPAY_SIGNATURE'] : '';
         if (!$payment->verifyCallback($rawBody, $signature)) {
-            jsonResponse(401, array('code' => 'FAIL', 'msg' => 'signature invalid')); return;
+            notifyResponse($path, 401, array('code' => 'FAIL', 'msg' => 'signature invalid')); return;
         }
         error_log('[DSPay PHP Demo] verified callback: ' . $rawBody);
         if ($path === '/notify/fail') {
             error_log('[DSPay PHP Demo] simulated FAIL callback: ' . $rawBody);
-            jsonResponse(200, array('code' => 'FAIL', 'msg' => 'mock merchant failure'));
+            notifyResponse($path, 200, array('code' => 'FAIL', 'msg' => 'mock merchant failure'));
             return;
         }
-        jsonResponse(200, array('code' => 'SUCCESS', 'msg' => 'ok'));
+        notifyResponse($path, 200, array('code' => 'SUCCESS', 'msg' => 'ok'));
         return;
     }
     // returnUrl (cancel/return) -> store front page; successRedirectUrl -> order query

@@ -22,6 +22,11 @@ function json(res, status, body) {
     res.end(JSON.stringify(body));
 }
 
+function notifyResponse(req, res, status, body) {
+    console.log(`[NOTIFY response] path=${new URL(req.url, PUBLIC_BASE_URL).pathname} status=${status} body=${JSON.stringify(body)}`);
+    json(res, status, body);
+}
+
 async function post(path, body) {
     const response = await fetch(`${DSPAY_BASE_URL}${path}`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
@@ -79,16 +84,16 @@ function notify(req, res, simulateFailure) {
     req.on('end', () => {
         const rawBody = Buffer.concat(chunks).toString('utf8');
         if (!verifyCallback(rawBody, req.headers['x-dspay-signature'], API_SECRET)) {
-            return json(res, 401, { code: 'FAIL', msg: 'signature invalid' });
+            return notifyResponse(req, res, 401, { code: 'FAIL', msg: 'signature invalid' });
         }
         const payload = JSON.parse(rawBody);
         console.log('[NOTIFY verified]', payload.orderNo, payload.eventType, payload.receivingAddress);
         if (simulateFailure) {
             console.error('[NOTIFY simulated FAIL]', payload.orderNo, payload.eventType);
-            return json(res, 200, { code: 'FAIL', msg: 'mock merchant failure' });
+            return notifyResponse(req, res, 200, { code: 'FAIL', msg: 'mock merchant failure' });
         }
         // Production: idempotently commit local business state before responding SUCCESS.
-        json(res, 200, { code: 'SUCCESS', msg: 'ok' });
+        notifyResponse(req, res, 200, { code: 'SUCCESS', msg: 'ok' });
     });
 }
 

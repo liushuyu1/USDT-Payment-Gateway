@@ -108,6 +108,8 @@ cd Demo/back-end/php
 
 FAIL 场景使用 HTTP 200 + 顶层 `code=FAIL`，用于验证 DSPay 对商户主动失败的 error 日志及重试流程；它不是网络异常模拟。
 
+通知日志会同时打印验签通过的请求和实际响应，例如：`[NOTIFY response] path=/notify/success status=200 body={"code":"SUCCESS","msg":"ok"}`，方便核对 DSPay 收到的 ACK；日志不会输出 `apiSecret`。
+
 ## 生产实现注意
 
 - `apiSecret` 存入 KMS/密钥管理服务，不写死在代码中。

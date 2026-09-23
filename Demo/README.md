@@ -86,4 +86,6 @@ Failure scenario: https://your-public-host/notify/fail
 
 The failure scenario deliberately returns HTTP 200 with top-level `code=FAIL`, allowing you to test DSPay's merchant-failure error log and retry path rather than a network failure.
 
+Notification logs include both the verified request and the actual response, for example: `[NOTIFY response] path=/notify/success status=200 body={"code":"SUCCESS","msg":"ok"}`. The API secret is never logged.
+
 In production, store the secret in KMS and assign a fresh `outOrderNo` to every new order. Only a network retry of the same logical create request should reuse its original `outOrderNo` and identical business fields. Add HTTP timeouts and bounded retries, process webhooks idempotently, and fulfill only after a verified webhook or server-side query reports `COMPLETED`. A browser redirect is never proof of payment. Both URLs are optional: `returnUrl` is used only when the order times out, while `successRedirectUrl` is used only after completion. Checkout becomes unviewable 180 days after order creation and must not be used as a permanent order-details URL.

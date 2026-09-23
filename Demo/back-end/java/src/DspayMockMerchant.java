@@ -168,22 +168,37 @@ public class DspayMockMerchant {
     }
 
     static void notify(HttpExchange exchange, boolean simulateFailure) throws IOException {
-        if (!"POST".equals(exchange.getRequestMethod())) { send(exchange, 405, "{\"code\":\"FAIL\"}"); return; }
+        if (!"POST".equals(exchange.getRequestMethod())) {
+            sendNotify(exchange, 405, "{\"code\":\"FAIL\",\"msg\":\"method not allowed\"}");
+            return;
+        }
         String raw = new String(readAll(exchange.getRequestBody()), StandardCharsets.UTF_8);
         String signature = exchange.getRequestHeaders().getFirst("X-DSPay-Signature");
         String expected;
         try { expected = hmac(canonicalCallback(raw), API_SECRET); }
-        catch (IllegalArgumentException ex) { send(exchange, 400, "{\"code\":\"FAIL\",\"msg\":\"invalid json\"}"); return; }
+        catch (IllegalArgumentException ex) {
+            sendNotify(exchange, 400, "{\"code\":\"FAIL\",\"msg\":\"invalid json\"}");
+            return;
+        }
         boolean valid = signature != null && MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), signature.toLowerCase().getBytes(StandardCharsets.UTF_8));
-        if (!valid) { send(exchange, 401, "{\"code\":\"FAIL\",\"msg\":\"signature invalid\"}"); return; }
+        if (!valid) {
+            sendNotify(exchange, 401, "{\"code\":\"FAIL\",\"msg\":\"signature invalid\"}");
+            return;
+        }
         System.out.println("[NOTIFY verified] " + raw);
         if (simulateFailure) {
             System.err.println("[NOTIFY simulated FAIL] " + raw);
-            send(exchange, 200, "{\"code\":\"FAIL\",\"msg\":\"mock merchant failure\"}");
+            sendNotify(exchange, 200, "{\"code\":\"FAIL\",\"msg\":\"mock merchant failure\"}");
             return;
         }
         // Production: idempotently commit local state before SUCCESS.
-        send(exchange, 200, "{\"code\":\"SUCCESS\",\"msg\":\"ok\"}");
+        sendNotify(exchange, 200, "{\"code\":\"SUCCESS\",\"msg\":\"ok\"}");
+    }
+
+    static void sendNotify(HttpExchange exchange, int status, String body) throws IOException {
+        System.out.println("[NOTIFY response] path=" + exchange.getRequestURI().getPath()
+                + " status=" + status + " body=" + body);
+        send(exchange, status, body);
     }
 
     /**
