@@ -19,7 +19,9 @@ java -DmerchantNo="REPLACE_WITH_REAL_MERCHANT_NO" -DapiSecret="REPLACE_WITH_REAL
 
 - `GET /create`：签名预下单并 302 到响应中的 `checkoutUrl`
 - `GET /query?orderNo=...` 或 `?outOrderNo=...`：签名主动查询
-- `POST /notify`：Raw Body 回调验签
+- `POST /notify/success`：回调验签通过后返回 `SUCCESS`
+- `POST /notify/fail`：回调验签通过后固定返回 HTTP 200 + `FAIL`，模拟商户处理失败和 DSPay 重试
+- `POST /notify`：兼容旧配置，等同 `/notify/success`
 - `GET /` 托管前端商店页（与接口同源；可用 `FRONT_END_DIR` 指定其他目录）
 - `returnUrl` 跳回商店首页；`successRedirectUrl` 跳到 `/query` 展示真实订单状态——浏览器跳转不能作为发货依据
 

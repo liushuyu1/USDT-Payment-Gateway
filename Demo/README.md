@@ -36,18 +36,14 @@ npm test
 
 ## Run Node.js
 
-> `REPLACE_WITH_REAL_MERCHANT_NO`, `REPLACE_WITH_REAL_API_SECRET`, and `REPLACE_WITH_REAL_DSPAY_API_HOST` below are placeholders. Replace all of them before running. Obtain `merchantNo` and `apiSecret` from the DSPay Merchant Portal.
+> The start script interactively prompts for the DSPay API URL, public demo URL, `merchantNo`, and `apiSecret`. Obtain the credentials from the DSPay Merchant Portal; entered values are not written to disk.
 
 ```bash
 cd Demo/back-end/nodejs
-export MERCHANT_NO="REPLACE_WITH_REAL_MERCHANT_NO"
-export API_SECRET="REPLACE_WITH_REAL_API_SECRET"
-export DSPAY_BASE_URL="https://REPLACE_WITH_REAL_DSPAY_API_HOST"
-export PUBLIC_BASE_URL="http://localhost:3000"
-npm start        # equivalent to: node src/server.js
+./start.sh
 ```
 
-Every backend version also serves the store page itself: after `./start.sh`, open `http://localhost:3000` (or your `PUBLIC_BASE_URL`) and click Pay Now — page and API share the same origin, no extra static hosting needed. Opening `Demo/front-end/index.html` directly from disk also works locally (it falls back to `http://localhost:3000`). Expose port 3000 through ngrok or similar when testing webhooks, then configure that public `/notify` URL in the merchant portal. `FRONT_END_DIR` optionally points the backend at a different front-end directory (default: `../../front-end`).
+Every backend version also serves the store page itself: after `./start.sh`, open `http://localhost:3000` (or your `PUBLIC_BASE_URL`) and click Pay Now — page and API share the same origin, no extra static hosting needed. Opening `Demo/front-end/index.html` directly from disk also works locally (it falls back to `http://localhost:3000`). Expose port 3000 through ngrok or similar when testing webhooks, then configure the public `/notify/success` or `/notify/fail` URL in the merchant portal. `FRONT_END_DIR` optionally points the backend at a different front-end directory (default: `../../front-end`).
 
 The front end displays an editable Order ID (`outOrderNo`). The refresh button generates a new ID each time; Pay Now submits the displayed ID. Use a new ID for each new order. Reuse the original ID and identical business fields only when retrying the same order. The backend uses the supplied value, or generates one when none is supplied.
 
@@ -55,25 +51,19 @@ The front end displays an editable Order ID (`outOrderNo`). The refresh button g
 
 ```bash
 cd Demo/back-end/java
-mkdir -p build && javac -d build src/DspayMockMerchant.java
-java -DmerchantNo="REPLACE_WITH_REAL_MERCHANT_NO" -DapiSecret="REPLACE_WITH_REAL_API_SECRET" \
-  -DdspayBase="https://REPLACE_WITH_REAL_DSPAY_API_HOST" \
-  -DpublicBase="http://localhost:3000" -cp build DspayMockMerchant
+./start.sh
 ```
 
 ## Run PHP
 
-> Replace the three `REPLACE_WITH_REAL_*` placeholders below (the API host included) with real values from the DSPay Merchant Portal. Do not copy Markdown link syntax into shell values.
+> The start script interactively prompts for missing configuration and hides `apiSecret` input. Environment variables remain available for non-interactive startup.
 
 ```bash
 cd Demo/back-end/php
-export MERCHANT_NO="REPLACE_WITH_REAL_MERCHANT_NO"
-export API_SECRET="REPLACE_WITH_REAL_API_SECRET"
-export DSPAY_BASE_URL="https://REPLACE_WITH_REAL_DSPAY_API_HOST"
-export PUBLIC_BASE_URL="http://localhost:3000"
-php -S 0.0.0.0:3000 server.php
-# background alternative: ./start.sh (prompts for missing variables, stop with ./stop.sh)
+./start.sh
 ```
+
+All three `start.sh` scripts use the same interactive flow: DSPay API URL, public demo URL, merchant number, and hidden API secret, with port `3000` as the default. Run `./stop.sh` in the same directory to stop the service.
 
 ## Demo endpoints
 
@@ -81,8 +71,19 @@ php -S 0.0.0.0:3000 server.php
 |---|---|---|
 | GET | `/create` | Create DSPay order server-to-server, then 302 to returned `checkoutUrl` |
 | GET | `/query?orderNo=...` | Node/PHP demo: signed authoritative order query |
-| POST | `/notify` | Verify webhook using the shared ASCII-sorted canonical field string |
+| POST | `/notify/success` | Verify the webhook, return `{"code":"SUCCESS","msg":"ok"}`, and stop DSPay retries |
+| POST | `/notify/fail` | Verify the webhook, return `{"code":"FAIL","msg":"mock merchant failure"}`, and trigger DSPay error logging/retry |
+| POST | `/notify` | Backward-compatible alias of `/notify/success` |
 | GET | `/payment/return` | Timeout landing; Node/PHP demo queries DSPay |
 | GET | `/payment/success` | Success landing; Node/PHP demo queries DSPay |
+
+All three language demos expose the same notification URLs and retain their existing `./start.sh` workflow. Expose the selected backend through ngrok or a similar tunnel, then configure one of these merchant-portal URLs:
+
+```text
+Success scenario: https://your-public-host/notify/success
+Failure scenario: https://your-public-host/notify/fail
+```
+
+The failure scenario deliberately returns HTTP 200 with top-level `code=FAIL`, allowing you to test DSPay's merchant-failure error log and retry path rather than a network failure.
 
 In production, store the secret in KMS and assign a fresh `outOrderNo` to every new order. Only a network retry of the same logical create request should reuse its original `outOrderNo` and identical business fields. Add HTTP timeouts and bounded retries, process webhooks idempotently, and fulfill only after a verified webhook or server-side query reports `COMPLETED`. A browser redirect is never proof of payment. Both URLs are optional: `returnUrl` is used only when the order times out, while `successRedirectUrl` is used only after completion. Checkout becomes unviewable 180 days after order creation and must not be used as a permanent order-details URL.

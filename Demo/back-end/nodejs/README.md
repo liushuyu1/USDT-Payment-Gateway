@@ -33,7 +33,9 @@ DSPAY_BASE_URL="https://REPLACE_WITH_REAL_DSPAY_API_HOST" PUBLIC_BASE_URL="http:
 
 - `GET /create`: server-to-server create, then 302 to returned `checkoutUrl`
 - `GET /query?orderNo=...` or `?outOrderNo=...`: signed authoritative query
-- `POST /notify`: verify `X-DSPay-Signature` over the shared ASCII-sorted canonical field string
+- `POST /notify/success`: verify `X-DSPay-Signature` and return `SUCCESS`
+- `POST /notify/fail`: verify the callback and return HTTP 200 + `FAIL` to exercise DSPay retry behavior
+- `POST /notify`: backward-compatible alias of `/notify/success`
 - `GET /` serves the front-end store page (same origin as the API; override the directory with `FRONT_END_DIR`)
 - `returnUrl` redirects back to the store page; `successRedirectUrl` lands on `/query` showing the real order status — a redirect is never proof of payment
 

@@ -110,6 +110,8 @@ for ((attempt = 0; attempt < 30; attempt++)); do
         echo "Server started successfully (PID=$PID)"
         echo "Log file: $LOG_FILE"
         echo "Port: $PORT"
+        echo "Notify SUCCESS URL: ${PUBLIC_BASE_URL%/}/notify/success"
+        echo "Notify FAIL URL: ${PUBLIC_BASE_URL%/}/notify/fail"
         echo "View logs: tail -f '$LOG_FILE'"
         echo "Stop server: ./stop.sh"
         exit 0

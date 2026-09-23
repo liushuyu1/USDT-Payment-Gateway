@@ -20,7 +20,9 @@ For background use, run `./start.sh`. It prompts for `DSPAY_BASE_URL`, `PUBLIC_B
 
 - `GET /create`: create the order server-to-server and redirect to `checkoutUrl`
 - `GET /query?orderNo=...` or `?outOrderNo=...`: signed authoritative query
-- `POST /notify`: verify `X-DSPay-Signature` over the shared ASCII-sorted canonical field string
+- `POST /notify/success`: verify `X-DSPay-Signature` and return `SUCCESS`
+- `POST /notify/fail`: verify the callback and return HTTP 200 + `FAIL` to exercise DSPay retry behavior
+- `POST /notify`: backward-compatible alias of `/notify/success`
 - `GET /` serves the front-end store page (same origin as the API; override the directory with `FRONT_END_DIR`)
 - `returnUrl` redirects back to the store page; `successRedirectUrl` lands on `/query` showing the real order status — a redirect is never proof of payment
 

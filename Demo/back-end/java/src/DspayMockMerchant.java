@@ -41,12 +41,16 @@ public class DspayMockMerchant {
         server.createContext("/", DspayMockMerchant::index);
         server.createContext("/create", DspayMockMerchant::create);
         server.createContext("/query", DspayMockMerchant::query);
-        server.createContext("/notify", DspayMockMerchant::notify);
+        server.createContext("/notify", exchange -> notify(exchange, false));
+        server.createContext("/notify/success", exchange -> notify(exchange, false));
+        server.createContext("/notify/fail", exchange -> notify(exchange, true));
         server.createContext("/payment/return", DspayMockMerchant::landing);
         server.createContext("/payment/success", DspayMockMerchant::landing);
         server.start();
         System.out.println("Mock merchant: " + PUBLIC_BASE);
         System.out.println("DSPay API: " + DSPAY_BASE);
+        System.out.println("Notify SUCCESS: " + PUBLIC_BASE + "/notify/success");
+        System.out.println("Notify FAIL: " + PUBLIC_BASE + "/notify/fail");
         System.out.println("Demo page: " + PUBLIC_BASE + "/  (served from " + FRONT_END_DIR.toAbsolutePath().normalize() + ")");
     }
 
@@ -163,7 +167,7 @@ public class DspayMockMerchant {
         }
     }
 
-    static void notify(HttpExchange exchange) throws IOException {
+    static void notify(HttpExchange exchange, boolean simulateFailure) throws IOException {
         if (!"POST".equals(exchange.getRequestMethod())) { send(exchange, 405, "{\"code\":\"FAIL\"}"); return; }
         String raw = new String(readAll(exchange.getRequestBody()), StandardCharsets.UTF_8);
         String signature = exchange.getRequestHeaders().getFirst("X-DSPay-Signature");
@@ -173,6 +177,11 @@ public class DspayMockMerchant {
         boolean valid = signature != null && MessageDigest.isEqual(expected.getBytes(StandardCharsets.UTF_8), signature.toLowerCase().getBytes(StandardCharsets.UTF_8));
         if (!valid) { send(exchange, 401, "{\"code\":\"FAIL\",\"msg\":\"signature invalid\"}"); return; }
         System.out.println("[NOTIFY verified] " + raw);
+        if (simulateFailure) {
+            System.err.println("[NOTIFY simulated FAIL] " + raw);
+            send(exchange, 200, "{\"code\":\"FAIL\",\"msg\":\"mock merchant failure\"}");
+            return;
+        }
         // Production: idempotently commit local state before SUCCESS.
         send(exchange, 200, "{\"code\":\"SUCCESS\",\"msg\":\"ok\"}");
     }

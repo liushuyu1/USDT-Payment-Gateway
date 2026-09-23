@@ -53,52 +53,39 @@ npm test
 4. DSPay 返回 `orderNo` 和 `checkoutUrl`。
 5. 商户后端 302 跳转到 `checkoutUrl`。
 6. 用户在 DSPay 收银台选币并确认 Pay Now，随后链上付款。
-7. DSPay 调用本地 `/notify`；Demo 使用 Raw Body 验签。
+7. DSPay 调用通知地址；Demo 解析 Raw Body、生成 ASCII 排序规范串并验签，可通过不同 URL 模拟 SUCCESS 或 FAIL。
 8. 超时返回页、成功页均不能直接视为支付凭证，商户需调用 `/dspay/public/order/query` 二次确认。
 
 ## Node.js 启动
 
-> 以下命令中的 `REPLACE_WITH_REAL_MERCHANT_NO`、`REPLACE_WITH_REAL_API_SECRET` 和 `REPLACE_WITH_REAL_DSPAY_API_HOST` 都是占位值，执行前必须替换为真实参数。`merchantNo` 和 `apiSecret` 从DSPay商户后台获取。
+> 启动脚本会交互询问 DSPay API 地址、Demo 公网地址、`merchantNo` 和 `apiSecret`；商户凭证从 DSPay 商户后台获取，输入内容不会写入磁盘。
 
 ```bash
 cd Demo/back-end/nodejs
-export MERCHANT_NO="REPLACE_WITH_REAL_MERCHANT_NO"
-export API_SECRET="REPLACE_WITH_REAL_API_SECRET"
-export DSPAY_BASE_URL="https://REPLACE_WITH_REAL_DSPAY_API_HOST"
-export PUBLIC_BASE_URL="http://localhost:3000"
-npm start        # 等价于 node src/server.js
+./start.sh
 ```
 
 三种语言后端都会直接托管商店页：执行 `./start.sh` 后，浏览器打开 `http://localhost:3000`（即 `PUBLIC_BASE_URL`）点击 Pay Now 即可——页面与接口同源，无需额外静态托管。本地也可以直接双击打开 `Demo/front-end/index.html`（页面会自动回退请求 `http://localhost:3000`）。可选环境变量 `FRONT_END_DIR` 可指定其他前端目录（默认 `../../front-end`）。
 
-本地回调需要公网可访问地址。可用 ngrok 等工具代理 3000 端口，然后把 `PUBLIC_BASE_URL` 和商户后台 `notifyUrl` 改为对应公网地址。
+本地回调需要公网可访问地址。可用 ngrok 等工具代理 3000 端口，然后把 `PUBLIC_BASE_URL` 和商户后台 `notifyUrl` 改为对应的 `/notify/success` 或 `/notify/fail` 公网地址。
 
 ## Java 启动
 
 ```bash
 cd Demo/back-end/java
-mkdir -p build && javac -d build src/DspayMockMerchant.java
-java \
-  -DmerchantNo="REPLACE_WITH_REAL_MERCHANT_NO" \
-  -DapiSecret="REPLACE_WITH_REAL_API_SECRET" \
-  -DdspayBase="https://REPLACE_WITH_REAL_DSPAY_API_HOST" \
-  -DpublicBase="http://localhost:3000" \
-  -cp build DspayMockMerchant
+./start.sh
 ```
 
 ## PHP 启动
 
-> 把下面三个 `REPLACE_WITH_REAL_*` 占位值（含 API 地址）替换为商户后台的真实参数。不要复制 Markdown 链接语法到 Shell 命令中。
+> 启动脚本会交互询问缺少的配置，`apiSecret` 输入不回显；也可提前设置对应环境变量进行非交互启动。
 
 ```bash
 cd Demo/back-end/php
-export MERCHANT_NO="REPLACE_WITH_REAL_MERCHANT_NO"
-export API_SECRET="REPLACE_WITH_REAL_API_SECRET"
-export DSPAY_BASE_URL="https://REPLACE_WITH_REAL_DSPAY_API_HOST"
-export PUBLIC_BASE_URL="http://localhost:3000"
-php -S 0.0.0.0:3000 server.php
-# 后台运行可选：./start.sh（缺变量时交互提示，./stop.sh 停止）
+./start.sh
 ```
+
+三套 `start.sh` 的交互流程一致：依次读取 DSPay API 地址、Demo 公网地址、商户号和 API Secret（密钥不回显），端口默认 `3000`；执行同目录的 `./stop.sh` 停止。
 
 ## 本地接口
 
@@ -106,9 +93,20 @@ php -S 0.0.0.0:3000 server.php
 |---|---|---|
 | GET | `/create` | 服务端创建 DSPay 订单并 302 跳转 `checkoutUrl` |
 | GET | `/query?orderNo=...` | Node.js/PHP Demo 主动查询 DSPay 订单 |
-| POST | `/notify` | 接收回调并使用 Raw Body 验签 |
+| POST | `/notify/success` | 验签通过后返回 `{"code":"SUCCESS","msg":"ok"}`，DSPay 停止重试 |
+| POST | `/notify/fail` | 验签通过后返回 `{"code":"FAIL","msg":"mock merchant failure"}`，DSPay 记录 error 并重试 |
+| POST | `/notify` | 兼容旧配置，行为与 `/notify/success` 相同 |
 | GET | `/payment/return` | 订单超时返回页；Node.js/PHP Demo 会继续调用查询接口 |
 | GET | `/payment/success` | 成功跳转页；Node.js/PHP Demo 会继续调用查询接口 |
+
+三种语言 Demo 的通知 URL 和启动方式完全一致。执行对应目录的 `./start.sh`，脚本会交互询问缺少的配置并打印两个通知地址。本地联调需通过 ngrok、cpolar 等工具提供公网域名，然后在商户后台按测试场景配置其中一个地址：
+
+```text
+成功场景：https://你的公网域名/notify/success
+失败场景：https://你的公网域名/notify/fail
+```
+
+FAIL 场景使用 HTTP 200 + 顶层 `code=FAIL`，用于验证 DSPay 对商户主动失败的 error 日志及重试流程；它不是网络异常模拟。
 
 ## 生产实现注意
 

@@ -54,13 +54,18 @@ try {
         jsonResponse(200, $payment->queryOrder($query));
         return;
     }
-    if ($method === 'POST' && $path === '/notify') {
+    if ($method === 'POST' && in_array($path, array('/notify', '/notify/success', '/notify/fail'), true)) {
         $rawBody = file_get_contents('php://input');
         $signature = isset($_SERVER['HTTP_X_DSPAY_SIGNATURE']) ? $_SERVER['HTTP_X_DSPAY_SIGNATURE'] : '';
         if (!$payment->verifyCallback($rawBody, $signature)) {
             jsonResponse(401, array('code' => 'FAIL', 'msg' => 'signature invalid')); return;
         }
         error_log('[DSPay PHP Demo] verified callback: ' . $rawBody);
+        if ($path === '/notify/fail') {
+            error_log('[DSPay PHP Demo] simulated FAIL callback: ' . $rawBody);
+            jsonResponse(200, array('code' => 'FAIL', 'msg' => 'mock merchant failure'));
+            return;
+        }
         jsonResponse(200, array('code' => 'SUCCESS', 'msg' => 'ok'));
         return;
     }

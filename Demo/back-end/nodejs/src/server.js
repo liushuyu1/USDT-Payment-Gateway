@@ -73,7 +73,7 @@ async function queryOrder(url, res) {
     json(res, 200, result);
 }
 
-function notify(req, res) {
+function notify(req, res, simulateFailure) {
     const chunks = [];
     req.on('data', (chunk) => chunks.push(chunk));
     req.on('end', () => {
@@ -83,6 +83,10 @@ function notify(req, res) {
         }
         const payload = JSON.parse(rawBody);
         console.log('[NOTIFY verified]', payload.orderNo, payload.eventType, payload.receivingAddress);
+        if (simulateFailure) {
+            console.error('[NOTIFY simulated FAIL]', payload.orderNo, payload.eventType);
+            return json(res, 200, { code: 'FAIL', msg: 'mock merchant failure' });
+        }
         // Production: idempotently commit local business state before responding SUCCESS.
         json(res, 200, { code: 'SUCCESS', msg: 'ok' });
     });
@@ -93,7 +97,9 @@ const server = http.createServer(async (req, res) => {
     try {
         if (req.method === 'GET' && url.pathname === '/create') return await createOrder(url, res);
         if (req.method === 'GET' && url.pathname === '/query') return await queryOrder(url, res);
-        if (req.method === 'POST' && url.pathname === '/notify') return notify(req, res);
+        if (req.method === 'POST' && url.pathname === '/notify') return notify(req, res, false);
+        if (req.method === 'POST' && url.pathname === '/notify/success') return notify(req, res, false);
+        if (req.method === 'POST' && url.pathname === '/notify/fail') return notify(req, res, true);
         // returnUrl (cancel/return) -> store front page; successRedirectUrl -> order query
         // (a redirect is not proof of payment — success lands on /query showing the real server-side status)
         if (req.method === 'GET' && url.pathname === '/payment/return') {
@@ -123,5 +129,7 @@ server.listen(PORT, () => {
     console.log(`Mock merchant: ${PUBLIC_BASE_URL}`);
     console.log(`DSPay API: ${DSPAY_BASE_URL}`);
     console.log('GET /create -> server-side create order -> 302 checkoutUrl');
+    console.log(`POST ${PUBLIC_BASE_URL}/notify/success -> verified SUCCESS response`);
+    console.log(`POST ${PUBLIC_BASE_URL}/notify/fail -> verified FAIL response`);
     console.log(`Demo page: ${PUBLIC_BASE_URL}/ (served from ${FRONT_END_DIR})`);
 });
