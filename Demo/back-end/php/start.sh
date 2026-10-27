@@ -34,7 +34,7 @@ prompt_required() {
         exit 1
     fi
     while [ -z "$value" ]; do
-        read -r -p "$description ($name): " value || exit 1
+        IFS= read -r -p "$description ($name): " value || exit 1
         [ -n "$value" ] || echo "$name cannot be empty." >&2
     done
     printf -v "$name" '%s' "$value"
@@ -49,56 +49,25 @@ prompt_secret() {
         exit 1
     fi
     while [ -z "${API_SECRET:-}" ]; do
-        read -r -s -p "API secret (API_SECRET, hidden): " API_SECRET || exit 1
+        IFS= read -r -s -p "API secret (API_SECRET, hidden): " API_SECRET || exit 1
         echo
         [ -n "$API_SECRET" ] || echo "API_SECRET cannot be empty." >&2
     done
 }
 
-resolve_port() {
-    local authority url_port
-    case "$PUBLIC_BASE_URL" in
-        http://*) authority="${PUBLIC_BASE_URL#http://}" ;;
-        https://*) echo "HTTPS is not supported by this demo. Set PUBLIC_BASE_URL to an http:// URL." >&2; exit 1 ;;
-        *) echo "Invalid PUBLIC_BASE_URL: expected an http:// URL." >&2; exit 1 ;;
-    esac
-    authority="${authority%%/*}"
-    authority="${authority%%\?*}"
-    authority="${authority%%\#*}"
-    if [[ "$authority" =~ ^(\[[^]]+\]|[[:alnum:].-]+):([[:digit:]]+)$ ]]; then
-        url_port="${BASH_REMATCH[2]}"
-    elif [[ "$authority" =~ ^(\[[^]]+\]|[[:alnum:].-]+)$ ]]; then
-        url_port=80
-    else
-        echo "Invalid PUBLIC_BASE_URL: expected a host and optional numeric port." >&2
-        exit 1
-    fi
-    if [ -n "${PORT:-}" ]; then
-        echo "Listening port (PORT): $PORT (from environment)"
-    else
-        PORT="$url_port"
-        echo "Listening port (PORT): $PORT (from PUBLIC_BASE_URL)"
-    fi
-}
-
-echo "Required configuration (preset environment variables are reused):"
-echo "  DSPAY_BASE_URL   DSPay API base URL"
-echo "  PUBLIC_BASE_URL  public URL of this demo"
-echo "  MERCHANT_NO      merchant number"
-echo "  API_SECRET       API secret (hidden input)"
-echo "  PORT             optional listening port override; otherwise from PUBLIC_BASE_URL"
-echo "  FRONT_END_DIR    optional; default ../../front-end (relative to this script)"
-prompt_required DSPAY_BASE_URL "DSPay API base URL"
-prompt_required PUBLIC_BASE_URL "Public demo URL"
-prompt_required MERCHANT_NO "Merchant number"
-prompt_secret
-resolve_port
-
-if ! [[ "$PORT" =~ ^[1-9][0-9]*$ ]] || [ "${#PORT}" -gt 5 ] || (( PORT > 65535 )); then
+PORT="${PORT-3000}"
+if ! [[ "$PORT" =~ ^[1-9][0-9]{0,4}$ ]] || (( PORT > 65535 )); then
     echo "Invalid PORT: expected an integer from 1 to 65535." >&2
     exit 1
 fi
-export DSPAY_BASE_URL PUBLIC_BASE_URL MERCHANT_NO API_SECRET PORT
+LOCAL_BASE_URL="http://localhost:$PORT"
+DSPAY_BASE_URL="${DSPAY_BASE_URL-https://pay-api.ds.pro}"
+echo "DSPay API: $DSPAY_BASE_URL"
+echo "Local port: $PORT (set PORT before startup only if you need another port)"
+prompt_required MERCHANT_NO "Merchant number"
+prompt_secret
+
+export DSPAY_BASE_URL MERCHANT_NO API_SECRET PORT
 
 echo "Starting server..."
 
@@ -115,11 +84,21 @@ echo $PID > "$PID_FILE"
 for ((attempt = 0; attempt < 30; attempt++)); do
     if tail -n +"$((LOG_START_LINE + 1))" "$LOG_FILE" | grep -q 'Development Server' && kill -0 "$PID" 2>/dev/null; then
         echo "Server started successfully (PID=$PID)"
+        echo "Listening port: $PORT"
         echo "Log file: $LOG_FILE"
-        echo "Port: $PORT"
-        echo "Demo page: ${PUBLIC_BASE_URL%/}/"
-        echo "Notify SUCCESS URL: ${PUBLIC_BASE_URL%/}/notify/success"
-        echo "Notify FAIL URL: ${PUBLIC_BASE_URL%/}/notify/fail"
+        echo "Local page: $LOCAL_BASE_URL/"
+        echo "Local callback endpoint: $LOCAL_BASE_URL/notify (not reachable by DSPay)"
+        echo "Callback success test (local): $LOCAL_BASE_URL/notify/success"
+        echo "Callback failure test (local): $LOCAL_BASE_URL/notify/fail"
+        echo "Next: open $LOCAL_BASE_URL/ in your browser."
+        echo "For public access: run ngrok http $PORT, or proxy nginx to port $PORT."
+        echo "Open the public URL to create orders; payment return links follow that request URL."
+        echo "Merchant Portal callback URL: <your public URL>/notify"
+        echo "Success test callback URL: <your public URL>/notify/success"
+        echo "Failure test callback URL: <your public URL>/notify/fail (deliberately requests retries)"
+        echo "Example: https://your-name.ngrok-free.dev/notify"
+        echo "Keep the tunnel running; update the portal if the public URL changes."
+        echo "nginx: pass Host and X-Forwarded-Proto; connect to this Demo through loopback."
         echo "View logs: tail -f '$LOG_FILE'"
         echo "Stop server: ./stop.sh"
         exit 0
@@ -132,7 +111,7 @@ done
 
 echo "Server failed to start. Recent logs:" >&2
 if tail -n +"$((LOG_START_LINE + 1))" "$LOG_FILE" | grep -Eq 'EADDRINUSE|Address already in use|BindException'; then
-    echo "Port $PORT is already in use. Change PUBLIC_BASE_URL to a free port, or set PORT explicitly." >&2
+    echo "Port $PORT is already in use. Stop the existing service or restart with PORT=<free-port> ./start.sh." >&2
 fi
 tail -n +"$((LOG_START_LINE + 1))" "$LOG_FILE" >&2
 if kill -0 "$PID" 2>/dev/null; then
