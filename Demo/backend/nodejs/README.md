@@ -1,42 +1,49 @@
 [English](README.md) | [中文](README.zh-CN.md)
 
-# DSPay Java Mock Merchant
+# DSPay Node.js Mock Merchant
 
-JDK 8+, zero external dependencies. It calls `POST /dspay/public/order/create`, redirects to the returned `checkoutUrl`, and verifies webhooks using the shared ASCII-sorted canonical field string.
+The single runtime baseline is Node.js `18.20.8` + npm `10.8.2`, with no npm dependencies. The service signs and calls `POST /dspay/public/order/create` and `/query`; it never builds a signed cashier URL in the browser.
 
-Runtime baseline: JDK 8 minimum; transport verified on Corretto `1.8.0_504`, Microsoft OpenJDK `11.0.27`, and Temurin `17.0.21` / `21.0.11`. Full startup and business regression checks cover JDK 8 and 21. Maven and Gradle are not required; the source uses only the JDK standard library. `./start.sh` compiles to `build/` and runs `java -cp build DspayMockMerchant` using the same JDK 8+ installation.
+The minimum and tested baseline are both Node.js `18.20.8` + npm `10.8.2`. The repository includes `.nvmrc`, and `package.json` declares `node >=18.20.8`. Multiple Node.js installations are not required, and no third-party npm packages are used.
 
-> `REPLACE_WITH_REAL_MERCHANT_NO` and `REPLACE_WITH_REAL_API_SECRET` below are placeholders. Replace them with real values from the DSPay Merchant Portal before running. The DSPay API base URL defaults to `https://pay-api.ds.pro`; override it only when testing another environment.
-
-The API address defaults to `https://pay-api.ds.pro` for both script and direct startup, so it is not prompted. Set `DSPAY_BASE_URL` explicitly only to test another environment. Java also accepts `-DdspayBase`, which takes precedence over the environment variable. API addresses must be complete HTTP(S) origins without a trailing slash, path, query, credentials, or whitespace; invalid explicit values are rejected rather than repaired.
+The API address defaults to `https://pay-api.ds.pro` for both script and direct startup, so it is not prompted. Set `DSPAY_BASE_URL` explicitly only to test another environment. API addresses must be complete HTTP(S) origins without a trailing slash, path, query, credentials, or whitespace; invalid explicit values are rejected rather than repaired.
 
 Startup requires only the merchant number and API secret; no access URL configuration is needed. The default port is `3000`; use `PORT=4000 ./start.sh` to change it. Payment return links use the origin of the create-order request. When using ngrok/nginx, open the public URL to create orders. Register `<public URL>/notify` separately in the Merchant Portal for real webhooks.
 
 For ngrok, run `ngrok http 3000` (match the Demo port). For nginx, proxy to `http://127.0.0.1:3000` and set `proxy_set_header Host $http_host;`, `proxy_set_header X-Forwarded-Proto $scheme;`, and `proxy_set_header X-Forwarded-Host $http_host;` to replace client-supplied forwarded hosts. The Demo trusts proxy headers only from loopback peers. Supply one correct host and protocol, not comma-separated lists, and access the public service through that proxy.
 
 ```bash
-cd Demo/back-end/java
-mkdir -p build && javac -d build src/DspayMockMerchant.java src/DspayTransport.java
-java -DmerchantNo="REPLACE_WITH_REAL_MERCHANT_NO" -DapiSecret="REPLACE_WITH_REAL_API_SECRET" \
-  -cp build DspayMockMerchant
+nvm install
+nvm use
+node --version  # v18.20.8
+npm --version   # 10.8.2
 ```
 
-For background use, run `./start.sh`. It prompts for `MERCHANT_NO` and `API_SECRET`; secret input is hidden. Set any of these environment variables beforehand to skip its prompt. `PORT` is optional and defaults to `3000`; `FRONT_END_DIR` optionally selects a directory containing `index.html` (default `../../front-end`; script-relative paths resolve from the Java Demo directory). Direct Java startup also accepts this environment variable; `-DfrontEndDir` takes precedence. Explicit empty values or a missing `index.html` cause startup to fail. The script does not save entered values, so enter them again on the next start or provide them through the environment. Non-interactive runs require the two credential variables.
+> `REPLACE_WITH_REAL_MERCHANT_NO` and `REPLACE_WITH_REAL_API_SECRET` below are placeholders. Replace them with real values from the DSPay Merchant Portal before running. The DSPay API base URL defaults to `https://pay-api.ds.pro`; override it only when testing another environment.
 
-- `GET /create`: create the order server-to-server and redirect to `checkoutUrl`
-- `GET /query?orderNo=...` or `?outOrderNo=...`: signed authoritative query
-- `POST /notify`: verify `X-DSPay-Signature` over the shared ASCII-sorted canonical field string
-- `GET /` serves the front-end store page (same origin as the API; override the directory with `FRONT_END_DIR`)
-- `returnUrl` redirects back to the store page; `successRedirectUrl` lands on `/query` showing the real order status — a redirect is never proof of payment
-
-Compile and run the local test:
+Run `./start.sh` for a background service. It prompts for missing `MERCHANT_NO` and `API_SECRET`; secret input is hidden. `PORT` is optional and defaults to `3000`; `FRONT_END_DIR` optionally overrides the served frontend directory (default `../../frontend`). Entered values are not saved, so provide them again on the next start or set environment variables first.
 
 ```bash
-mkdir -p /tmp/dspay-java
-javac -d /tmp/dspay-java src/DspayMockMerchant.java src/DspayTransport.java test/DspayMockMerchantTest.java test/DspayTransportTest.java
-java -cp /tmp/dspay-java DspayMockMerchantTest
-java -cp /tmp/dspay-java DspayTransportTest
+cd Demo/backend/nodejs
+./start.sh
 ```
+
+For non-interactive use, set the environment variables first:
+
+```bash
+cd Demo/backend/nodejs
+MERCHANT_NO="REPLACE_WITH_REAL_MERCHANT_NO" API_SECRET="REPLACE_WITH_REAL_API_SECRET" \
+npm start
+# npm start is equivalent to node src/server.js; background alternative: ./start.sh (stop with ./stop.sh)
+```
+
+- `GET /create`: server-to-server create, then 302 to returned `checkoutUrl`
+- `GET /query?orderNo=...` or `?outOrderNo=...`: signed authoritative query
+- `POST /notify`: verify `X-DSPay-Signature` over the shared ASCII-sorted canonical field string
+- `GET /` serves the frontend store page (same origin as the API; override the directory with `FRONT_END_DIR`)
+- `returnUrl` redirects back to the store page; `successRedirectUrl` lands on `/query` showing the real order status — a redirect is never proof of payment
+
+Run tests with `npm test`.
 
 ## Request and Response Logs
 
@@ -46,7 +53,7 @@ From the backend directory, run `tail -f logs/server.log` for live logs after `.
 
 Check both HTTP status and DSPay business codes. Verification or redirects do not prove merchant accounting or fulfillment. API secrets and JSON signature fields are redacted; other business parameters remain visible for integration debugging.
 
-The Java client sends `User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36` and `Accept: application/json`. For Cloudflare block HTML, inspect the HTTP status, `CF-Ray`, and response body in `DSPAY_RESPONSE` logs. Give the Ray ID to the API operator to identify the rule; an explicit client identifier does not guarantee acceptance by every firewall rule.
+The Node.js client calls HTTPS APIs through built-in TLS/HTTP/2 support, using a fixed modern cipher order, a standard Chrome browser User-Agent, and `Accept: application/json`. The implementation in `src/transport.js` requires no npm installation, third-party packages, or native binaries. It neither configures a proxy nor reads system proxy settings. HTTPS upstreams must support HTTP/2; local HTTP mock APIs still use HTTP/1.1. Certificate verification stays enabled, with TLS 1.2 as the minimum version. For Cloudflare HTTP 403, logs retain the response body, `cfRay`, and `contentType`; the page error also includes `CF-Ray`. Give the Ray ID to the API operator to identify the blocking rule. Changing the User-Agent does not guarantee acceptance by every rule.
 
 ## Shared Behavior Across All Four Demos
 
@@ -55,6 +62,10 @@ The Java client sends `User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) App
 Callbacks preserve large JSON integers and decimal precision and reject duplicate object keys. `timestamp` must be a nonnegative integer in milliseconds within an inclusive ±5-minute window. Invalid signatures or timestamps return HTTP 401. The Demo imposes no extra fixed callback-body size cap.
 
 Upstream requests explicitly use 10-second timeouts and refuse redirects. Success requires a top-level integer `code` equal to `0` and a `data` field; HTTP 200 or `header.resultCode` alone is insufficient. HTTP failures, nonzero business codes, malformed responses, and timeouts return HTTP 502 with diagnostic logs. HTTP libraries, default proxy behavior, and TLS characteristics remain runtime-specific.
+
+For network failures, `DSPAY_ERROR.details` retains the underlying Node.js cause chain and error codes such as `ECONNRESET`, `ENOTFOUND`, and `ETIMEDOUT`. Error responses also show the underlying cause; the 10-second timeout is reported explicitly. A connection error without an HTTP response is distinct from a Cloudflare HTTP 403 and must be diagnosed using its actual error code.
+
+Run regression tests with `node --test` (or `npm test`). TLS tests generate temporary local certificates using OpenSSL; OpenSSL is a test tool only and is not required to run the Demo. Independent transport checks on older Node releases do not change the full Demo runtime baseline of `>=18.20.8`.
 
 ## Callback Success and Failure Tests
 
@@ -69,7 +80,3 @@ All four languages expose the same callback routes. Every route requires a valid
 Expose the Demo port through ngrok/nginx, then configure `https://<public-host>/notify/success` or `https://<public-host>/notify/fail` in the Merchant Portal for the selected scenario. Existing `/notify` configurations continue to work. No Demo access-domain configuration is required. The `/notify/fail` response is deliberate, not a transport failure; do not use it for normal success acknowledgement. Invalid signatures or stale timestamps still return HTTP 401 before any simulated processing.
 
 Successful startup prints local test links and portal URL templates. `CALLBACK_REQUEST`, `CALLBACK_VERIFIED`, and `DEMO_RESPONSE` record the request, verification result, and actual response; deliberate failures also emit `CALLBACK_SIMULATED_FAILURE`. These mock acknowledgements do not perform accounting or fulfillment. Confirm real retry delivery and order completion through DSPay and the merchant business system.
-
-Requests use the Java 8 public `Socket` / `SSLSocket` APIs through `src/DspayTransport.java`, with HTTP/1.1 and the same Chrome 147 User-Agent as the other Demos. No JDK 11 API, third-party library, native binary, or automatic proxy configuration is required. HTTPS verifies the certificate chain and hostname and requires TLS 1.2 or newer. The 10-second deadline covers connection, TLS handshake, writes, and response reads. The client handles fixed-length, chunked, and connection-delimited responses, supports gzip/deflate, and does not follow redirects. This is a small POST implementation, not a complete backport of JDK 11 HttpClient.
-
-Transport tests generate temporary local certificates with the JDK `keytool`; they do not disable TLS verification.

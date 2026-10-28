@@ -1,47 +1,29 @@
 [English](README.md) | [中文](README.zh-CN.md)
 
-# Node.js Mock Merchant
+# Java Mock Merchant
 
-统一使用 Node.js `18.20.8` + npm `10.8.2`，零 npm 依赖。该服务真实调用 `POST /dspay/public/order/create` 和 `/query`，并使用响应中的 `checkoutUrl` 跳转收银台。
+JDK 8+，零外部依赖。该服务真实调用 `POST /dspay/public/order/create`，并使用响应中的 `checkoutUrl` 跳转收银台。
 
-版本基线和已验证版本均为 Node.js `18.20.8` + npm `10.8.2`。仓库提供 `.nvmrc`，`package.json` 声明 `node >=18.20.8`，不需要多个Node版本，也没有第三方npm包。
+版本基线：最低 JDK 8；已在 Corretto `1.8.0_504`、Microsoft OpenJDK `11.0.27` 和 Temurin `17.0.21` / `21.0.11` 上完成传输模块验证，完整启动及业务回归覆盖 JDK 8 和 21。无需 Maven/Gradle，源码只使用 JDK 标准库。`./start.sh` 会先编译到 `build/` 再以 `java -cp build DspayMockMerchant` 运行。
 
-脚本和直接启动均默认使用 `https://pay-api.ds.pro`，不再询问 API 地址；仅测试其他环境时显式设置 `DSPAY_BASE_URL`。API 地址必须是完整的 HTTP(S) 源地址，不允许尾部斜杠、路径、查询参数、用户名密码或空白；显式非法值会报错，不静默修正。
+> 命令中的 `REPLACE_WITH_REAL_MERCHANT_NO` 和 `REPLACE_WITH_REAL_API_SECRET` 是占位值，执行前必须替换为 DSPay 商户后台中的真实参数。DSPay API 地址默认使用正式环境地址 `https://pay-api.ds.pro`，无需填写；仅测试其他环境时覆盖。
+
+脚本和直接启动均默认使用 `https://pay-api.ds.pro`，不再询问 API 地址；仅测试其他环境时显式设置 `DSPAY_BASE_URL`。Java 也支持 `-DdspayBase`，优先于环境变量。API 地址必须是完整的 HTTP(S) 源地址，不允许尾部斜杠、路径、查询参数、用户名密码或空白；显式非法值会报错，不静默修正。
 
 启动只需商户号和 API 密钥，不需要配置访问域名。默认监听 `3000`，可用 `PORT=4000 ./start.sh` 更换端口。支付返回链接根据创建订单请求的域名和协议生成；通过 ngrok/nginx 访问时，请从公网地址打开 Demo 并创建订单。真实回调地址为 `<公网地址>/notify`，仍需在商户后台单独登记。
 
 ngrok 示例：`ngrok http 3000`（端口应与 Demo 一致）。nginx 请转发到 `http://127.0.0.1:3000`，设置 `proxy_set_header Host $http_host;` 和 `proxy_set_header X-Forwarded-Proto $scheme;`，并覆盖客户端传入的 `X-Forwarded-Host`：`proxy_set_header X-Forwarded-Host $http_host;`。Demo 仅信任来自本机回环地址的代理头，代理链应提供单个正确的域名和协议，不能传入逗号列表；公网入口应通过该代理访问。
 
 ```bash
-nvm install
-nvm use
-node --version  # v18.20.8
-npm --version   # 10.8.2
+mkdir -p build && javac -d build src/DspayMockMerchant.java src/DspayTransport.java
+java -DmerchantNo="REPLACE_WITH_REAL_MERCHANT_NO" -DapiSecret="REPLACE_WITH_REAL_API_SECRET" \
+  -cp build DspayMockMerchant
 ```
 
-> 命令中的 `REPLACE_WITH_REAL_MERCHANT_NO` 和 `REPLACE_WITH_REAL_API_SECRET` 是占位值，执行前必须替换为 DSPay 商户后台中的真实参数。DSPay API 地址默认使用正式环境地址 `https://pay-api.ds.pro`，无需填写；仅测试其他环境时覆盖。
-
-后台运行可直接执行 `./start.sh`。脚本先询问缺少的 `MERCHANT_NO` 和 `API_SECRET`，密钥输入不回显。`PORT` 可选，默认 `3000`；`FRONT_END_DIR` 可选，可指定其他前端目录（默认 `../../front-end`）。输入值不会保存；下次启动需重新输入或提前设置环境变量。
-
-```bash
-cd Demo/back-end/nodejs
-./start.sh
-```
-
-前台交互运行可用 `npm start`（等价于 `node src/server.js`）。
-
-非交互运行时，先设置环境变量：
-
-```bash
-export MERCHANT_NO="REPLACE_WITH_REAL_MERCHANT_NO"
-export API_SECRET="REPLACE_WITH_REAL_API_SECRET"
-npm start        # 等价于 node src/server.js
-```
-
-后台运行可选 `./start.sh`（缺变量时交互提示，`./stop.sh` 停止）。
+后台运行可执行 `./start.sh`。脚本先询问 `MERCHANT_NO` 和 `API_SECRET`，密钥输入不回显。提前设置对应环境变量可跳过询问。`PORT` 可选，默认 `3000`；`FRONT_END_DIR` 可选，可指定包含 `index.html` 的其他前端目录（默认 `../../frontend`，脚本中的相对路径以 Java Demo 目录为基准）；直接运行 Java 时也支持此环境变量，`-DfrontEndDir` 优先。显式空值或缺少 `index.html` 会启动失败。输入值不会保存；下次启动需重新输入或通过环境变量提供。非交互运行只需提供上述两项凭证环境变量。
 
 - `GET /create`：签名预下单并 302 到响应中的 `checkoutUrl`
-- `GET /query?orderNo=...` 或 `?outOrderNo=...`：签名查询
+- `GET /query?orderNo=...` 或 `?outOrderNo=...`：签名主动查询
 - `POST /notify`：解析回调 JSON，按参数名 ASCII 升序生成规范串后验签
 - `GET /` 托管前端商店页（与接口同源；可用 `FRONT_END_DIR` 指定其他目录）
 - `returnUrl` 跳回商店首页；`successRedirectUrl` 跳到 `/query` 展示真实订单状态——浏览器跳转不能作为发货依据
@@ -56,7 +38,7 @@ npm start        # 等价于 node src/server.js
 
 请同时检查 HTTP 状态码和 DSPay 业务码；验签通过或跳转成功不代表商户已经入账或发货。API 密钥和 JSON 签名字段会脱敏，其余业务参数保留用于联调。
 
-Node.js 客户端通过内置 `tls`/HTTP/2 能力调用 HTTPS API，采用固定的现代加密套件顺序和普通 Chrome 浏览器 User-Agent，并发送 `Accept: application/json`。实现位于 `src/transport.js`，无需 npm 安装、第三方包或原生二进制；没有配置或自动读取系统代理。HTTPS 上游必须支持 HTTP/2；本地 HTTP 模拟接口仍使用 HTTP/1.1。证书验证保持开启，TLS 最低版本为 1.2。若收到 Cloudflare HTTP 403，日志保留响应正文、`cfRay` 和 `contentType`，页面错误也包含 `CF-Ray`。请将 Ray ID 提供给 API 管理方定位拦截规则；更换 User-Agent 不能保证所有规则都会放行。
+Java 客户端使用 `User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36` 和 `Accept: application/json`。若响应为 Cloudflare 拦截 HTML，请在 `DSPAY_RESPONSE` 日志中查看 HTTP 状态、`CF-Ray` 和响应正文，并提供 Ray ID 给 API 管理方定位规则；增加客户端标识不保证所有防火墙规则都会放行。
 
 ## 四种 Demo 的统一行为
 
@@ -65,10 +47,6 @@ Node.js 客户端通过内置 `tls`/HTTP/2 能力调用 HTTPS API，采用固定
 回调保留 JSON 大整数和小数精度，拒绝重复 JSON 字段。`timestamp` 必须是非负整数毫秒值，允许当前时间前后 5 分钟，包含边界。验签或时间窗不通过返回 HTTP 401。Demo 不额外设置回调正文的固定大小上限。
 
 上游请求显式配置 10 秒超时，不跟随重定向。成功必须满足顶层整数 `code` 为 `0` 且包含 `data`；不能只看 HTTP 200 或 `header.resultCode`。HTTP 错误、业务码非零、响应格式异常或超时统一返回 HTTP 502，并保留诊断日志。网络库、代理默认行为和 TLS 特征仍由各运行时决定。
-
-网络失败时，`DSPAY_ERROR` 日志的 `details` 会保留 Node.js 底层 `cause` 链及错误码，例如 `ECONNRESET`、`ENOTFOUND`、`ETIMEDOUT`。错误响应同时显示底层原因；10 秒超时会明确提示。没有收到 HTTP 响应的连接错误 与 Cloudflare HTTP 403 是不同故障，需根据实际错误码排查。
-
-运行回归测试：`node --test`（或 `npm test`）。TLS 测试使用 OpenSSL 生成临时本地证书；OpenSSL 仅为测试工具，启动 Demo 不需要它。传输模块在较低 Node 版本上的独立验证不改变整个 Demo 的 `>=18.20.8` 运行基线。
 
 ## 回调成功与失败测试
 
@@ -83,3 +61,7 @@ Node.js 客户端通过内置 `tls`/HTTP/2 能力调用 HTTPS API，采用固定
 先用 ngrok/nginx 映射 Demo 的监听端口，再在商户后台按测试场景配置 `https://<公网域名>/notify/success` 或 `https://<公网域名>/notify/fail`；原有 `/notify` 地址继续可用，不需要配置 Demo 的访问域名。`/notify/fail` 的失败响应是故意的，不是网络错误；该地址不用于正常的成功确认。非法签名或过期时间戳仍返回 HTTP 401，不会进入模拟成功或失败处理。
 
 启动成功时会显示本地测试链接和商户后台地址格式。`CALLBACK_REQUEST`、`CALLBACK_VERIFIED`、`DEMO_RESPONSE` 日志记录请求、验证结果和实际响应；故意失败时另有 `CALLBACK_SIMULATED_FAILURE`。模拟 ACK 不会入账或发货，真实重试和订单完成情况需结合 DSPay 及商户业务系统确认。
+
+请求通过 `src/DspayTransport.java` 使用 Java 8 公共 `Socket` / `SSLSocket` API，以 HTTP/1.1 发送，与其他 Demo 统一 Chrome 147 User-Agent。无需 JDK 11 API、第三方库或原生二进制，不自动配置代理。HTTPS 校验证书链及主机名，最低 TLS 1.2。10 秒总时限覆盖连接、TLS 握手、发送及读取响应；支持定长、分块和连接关闭定界的响应、gzip/deflate，不跟随重定向。这是精简 POST 实现，不是完整移植 JDK 11 HttpClient。
+
+本地测试：先执行 `mkdir -p /tmp/dspay-java`，再执行 `javac -d /tmp/dspay-java src/DspayMockMerchant.java src/DspayTransport.java test/DspayMockMerchantTest.java test/DspayTransportTest.java`，随后分别运行 `java -cp /tmp/dspay-java DspayMockMerchantTest` 和 `java -cp /tmp/dspay-java DspayTransportTest`。传输测试使用 JDK 自带的 `keytool` 生成临时证书，不关闭 TLS 校验。
