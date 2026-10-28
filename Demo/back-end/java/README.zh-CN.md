@@ -4,7 +4,7 @@
 
 JDK 8+，零外部依赖。该服务真实调用 `POST /dspay/public/order/create`，并使用响应中的 `checkoutUrl` 跳转收银台。
 
-版本基线：最低 JDK 8；已在 Amazon Corretto `1.8.0_504`（真实 JDK 8）和 Eclipse Temurin `21.0.11` 上端到端验证。无需 Maven/Gradle，源码只使用 JDK 标准库。`./start.sh` 会先编译到 `build/` 再以 `java -cp build DspayMockMerchant` 运行（兼容不支持单文件源码启动的 JDK 8）。
+版本基线：最低 JDK 8；已在 Corretto `1.8.0_504`、Microsoft OpenJDK `11.0.27` 和 Temurin `17.0.21` / `21.0.11` 上完成传输模块验证，完整启动及业务回归覆盖 JDK 8 和 21。无需 Maven/Gradle，源码只使用 JDK 标准库。`./start.sh` 会先编译到 `build/` 再以 `java -cp build DspayMockMerchant` 运行。
 
 > 命令中的 `REPLACE_WITH_REAL_MERCHANT_NO` 和 `REPLACE_WITH_REAL_API_SECRET` 是占位值，执行前必须替换为 DSPay 商户后台中的真实参数。DSPay API 地址默认使用正式环境地址 `https://pay-api.ds.pro`，无需填写；仅测试其他环境时覆盖。
 
@@ -15,7 +15,7 @@ JDK 8+，零外部依赖。该服务真实调用 `POST /dspay/public/order/creat
 ngrok 示例：`ngrok http 3000`（端口应与 Demo 一致）。nginx 请转发到 `http://127.0.0.1:3000`，设置 `proxy_set_header Host $http_host;` 和 `proxy_set_header X-Forwarded-Proto $scheme;`，并覆盖客户端传入的 `X-Forwarded-Host`：`proxy_set_header X-Forwarded-Host $http_host;`。Demo 仅信任来自本机回环地址的代理头，代理链应提供单个正确的域名和协议，不能传入逗号列表；公网入口应通过该代理访问。
 
 ```bash
-mkdir -p build && javac -d build src/DspayMockMerchant.java
+mkdir -p build && javac -d build src/DspayMockMerchant.java src/DspayTransport.java
 java -DmerchantNo="REPLACE_WITH_REAL_MERCHANT_NO" -DapiSecret="REPLACE_WITH_REAL_API_SECRET" \
   -cp build DspayMockMerchant
 ```
@@ -38,7 +38,7 @@ java -DmerchantNo="REPLACE_WITH_REAL_MERCHANT_NO" -DapiSecret="REPLACE_WITH_REAL
 
 请同时检查 HTTP 状态码和 DSPay 业务码；验签通过或跳转成功不代表商户已经入账或发货。API 密钥和 JSON 签名字段会脱敏，其余业务参数保留用于联调。
 
-Java 客户端使用 `User-Agent: DSPay-Java-Demo/1.0` 和 `Accept: application/json`。若响应为 Cloudflare 拦截 HTML，请在 `DSPAY_RESPONSE` 日志中查看 HTTP 状态、`CF-Ray` 和响应正文，并提供 Ray ID 给 API 管理方定位规则；增加客户端标识不保证所有防火墙规则都会放行。
+Java 客户端使用 `User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36` 和 `Accept: application/json`。若响应为 Cloudflare 拦截 HTML，请在 `DSPAY_RESPONSE` 日志中查看 HTTP 状态、`CF-Ray` 和响应正文，并提供 Ray ID 给 API 管理方定位规则；增加客户端标识不保证所有防火墙规则都会放行。
 
 ## 四种 Demo 的统一行为
 
@@ -61,3 +61,7 @@ Java 客户端使用 `User-Agent: DSPay-Java-Demo/1.0` 和 `Accept: application/
 先用 ngrok/nginx 映射 Demo 的监听端口，再在商户后台按测试场景配置 `https://<公网域名>/notify/success` 或 `https://<公网域名>/notify/fail`；原有 `/notify` 地址继续可用，不需要配置 Demo 的访问域名。`/notify/fail` 的失败响应是故意的，不是网络错误；该地址不用于正常的成功确认。非法签名或过期时间戳仍返回 HTTP 401，不会进入模拟成功或失败处理。
 
 启动成功时会显示本地测试链接和商户后台地址格式。`CALLBACK_REQUEST`、`CALLBACK_VERIFIED`、`DEMO_RESPONSE` 日志记录请求、验证结果和实际响应；故意失败时另有 `CALLBACK_SIMULATED_FAILURE`。模拟 ACK 不会入账或发货，真实重试和订单完成情况需结合 DSPay 及商户业务系统确认。
+
+请求通过 `src/DspayTransport.java` 使用 Java 8 公共 `Socket` / `SSLSocket` API，以 HTTP/1.1 发送，与其他 Demo 统一 Chrome 147 User-Agent。无需 JDK 11 API、第三方库或原生二进制，不自动配置代理。HTTPS 校验证书链及主机名，最低 TLS 1.2。10 秒总时限覆盖连接、TLS 握手、发送及读取响应；支持定长、分块和连接关闭定界的响应、gzip/deflate，不跟随重定向。这是精简 POST 实现，不是完整移植 JDK 11 HttpClient。
+
+本地测试：先执行 `mkdir -p /tmp/dspay-java`，再执行 `javac -d /tmp/dspay-java src/DspayMockMerchant.java src/DspayTransport.java test/DspayMockMerchantTest.java test/DspayTransportTest.java`，随后分别运行 `java -cp /tmp/dspay-java DspayMockMerchantTest` 和 `java -cp /tmp/dspay-java DspayTransportTest`。传输测试使用 JDK 自带的 `keytool` 生成临时证书，不关闭 TLS 校验。
